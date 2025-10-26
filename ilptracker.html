@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integral Life Practice Tracker</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for consistency and aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-checkbox {
+            min-width: 1.25rem;
+            min-height: 1.25rem;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen">
+    <!-- Main container for the application -->
+    <div id="app" class="max-w-6xl mx-auto p-4 sm:p-8">
+        <!-- Content will be dynamically rendered by JavaScript -->
+    </div>
+
+    <!-- Load Firebase Auth (only for mandatory environment userId) and Application Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // NOTE: Firestore imports (getFirestore, doc, setDoc, onSnapshot, serverTimestamp) have been removed,
+        // as we are using localStorage for data persistence.
+
+        // --- Global Variables (Provided by Canvas Environment) ---
+        let auth = null;
+        let userId = null;
+
+        // State object replaces React's useState
+        let state = {
+            loading: true,
+            error: '',
+            config: [],
+            dailyLog: {}, // Today's log (subset of allLogs)
+            allLogs: {}, // All historical logs by date key
+            view: 'tracker', // 'tracker', 'config', or 'history'
+            newModuleName: '',
+            newPracticeTexts: {}, // { moduleId: text, ... }
+        };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ilp-default-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const getTodayDateKey = () => new Date().toISOString().split('T')[0];
+
+        const CORE_MODULES = [
+            // Added completionRule: 'all' as the default for existing modules
+            { id: 'body', name: 'Body', icon: '🏃', completionRule: 'all', practices: ['Yoga', 'Cardio', 'Nutrition'] },
+            { id: 'mind', name: 'Mind', icon: '🧠', completionRule: 'all', practices: ['Study', 'Concentration', 'Journaling'] },
+            { id: 'spirit', name: 'Spirit', icon: '✨', completionRule: 'all', practices: ['Meditation', 'Contemplation'] },
+            { id: 'shadow', name: 'Shadow', icon: '🌑', completionRule: 'all', practices: ['Inquiry', 'Therapy'] },
+        ];
+
+        // --- Core Logic Helper ---
+
+        /**
+         * Determines if a module is completed based on its rule and the daily log.
+         * @param {Object} module 
+         * @param {Object} dailyLog 
+         * @returns {boolean}
+         */
+        function isModuleCompleted(module, dailyLog)
+        {
+            if (!module.practices || module.practices.length === 0) return true; // Empty module is implicitly "done"
+
+            // Helper to check if a specific practice is logged as completed
+            const isPracticeCompleted = (p) => dailyLog[`${module.id}_${p.id}`] === 'completed';
+
+            if (module.completionRule === 'choose_one')
+            {
+                // Rule: Module is complete if AT LEAST ONE practice is completed
+                return module.practices.some(isPracticeCompleted);
+            } else
+            { // 'all' (default)
+                // Rule: Module is complete if ALL practices are completed
+                return module.practices.every(isPracticeCompleted);
+            }
+        }
+
+        // --- State Management and Renderer ---
+
+        // Central function to update state and trigger a re-render
+        function setState(updates)
+        {
+            // Shallow merge updates into the global state
+            Object.assign(state, updates);
+            renderApp();
+        }
+
+        // --- Auth/Listeners (Simplified for Local Storage) ---
+
+        async function initApp()
+        {
+            try
+            {
+                // Initialize Firebase only for mandatory environment auth, not for data storage
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, async (user) =>
+                {
+                    if (user)
+                    {
+                        userId = user.uid;
+                        setState({ loading: false });
+                        loadConfig();
+                        loadDailyLog();
+                    } else
+                    {
+                        try
+                        {
+                            if (initialAuthToken)
+                            {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else
+                            {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (e)
+                        {
+                            console.error('Auth error during sign-in attempt. Using fallback ID.', e);
+                            userId = 'local-user-session'; // Fallback to a fixed local ID
+                        }
+                    }
+                });
+
+            } catch (e)
+            {
+                console.error("Initialization failed. Using local fallback.", e);
+                userId = 'local-user-session'; // Fallback to a fixed local ID
+                setState({ loading: false });
+                loadConfig();
+                loadDailyLog();
+            }
+        }
+
+        function getLocalConfigKey() { return `ilp_config_${userId}`; }
+        function getLocalAllLogsKey() { return `ilp_all_logs_${userId}`; } // Single key for all logs
+
+        // --- Data Loaders (Local Storage Readers) ---
+
+        function loadConfig()
+        {
+            const configKey = getLocalConfigKey();
+            const storedConfig = localStorage.getItem(configKey);
+
+            if (storedConfig)
+            {
+                try
+                {
+                    const parsedConfig = JSON.parse(storedConfig).modules;
+                    // Ensure all loaded modules have the completionRule, defaulting to 'all' if missing (for legacy data)
+                    const normalizedConfig = parsedConfig.map(m => ({
+                        ...m,
+                        completionRule: m.completionRule || 'all'
+                    }));
+                    setState({ config: normalizedConfig });
+                    console.log('ILP Config loaded and normalized from localStorage.');
+                } catch (e)
+                {
+                    console.error("Error parsing stored config:", e);
+                    // Re-initialize with core modules if parsing fails
+                    initializeDefaultConfig();
+                }
+            } else if (state.config.length === 0)
+            {
+                initializeDefaultConfig();
+            }
+        }
+
+        function initializeDefaultConfig()
+        {
+            // Initialize with default modules if no config exists
+            const initialConfig = CORE_MODULES.map(m => ({
+                ...m,
+                completionRule: m.completionRule || 'all', // Ensure rule is set
+                practices: m.practices.map(p => ({ id: p.toLowerCase().replace(/\s/g, '_'), name: p, custom: false }))
+            }));
+
+            setState({ config: initialConfig });
+            saveConfig(initialConfig); // Save defaults immediately
+        }
+
+
+        function loadDailyLog()
+        {
+            const todayKey = getTodayDateKey();
+            const logKey = getLocalAllLogsKey(); // Single key for all logs
+            const storedLogs = localStorage.getItem(logKey);
+
+            let allLogs = {};
+            if (storedLogs)
+            {
+                try
+                {
+                    allLogs = JSON.parse(storedLogs).logs || {};
+                    console.log(`All logs loaded from localStorage. Total days: ${Object.keys(allLogs).length}`);
+                } catch (e)
+                {
+                    console.error("Error parsing stored logs:", e);
+                }
+            }
+
+            // Set today's log from the loaded history, or default to empty object
+            const todayLog = allLogs[todayKey] ? allLogs[todayKey].practices : {};
+
+            setState({
+                dailyLog: todayLog,
+                allLogs: allLogs
+            });
+        }
+
+        // --- Data Handlers (Local Storage Writers) ---
+
+        function saveConfig(newConfig)
+        {
+            if (!userId) return;
+            const configKey = getLocalConfigKey();
+
+            try
+            {
+                // Save the whole structure under 'modules' key for consistency
+                localStorage.setItem(configKey, JSON.stringify({ modules: newConfig, updatedAt: new Date().toISOString() }));
+            } catch (e)
+            {
+                console.error("Error saving config to localStorage:", e);
+                setState({ error: "Failed to save configuration locally." });
+            }
+            // Configuration is updated implicitly when setState is called by config handlers
+        }
+
+        function togglePractice(moduleId, practiceId, isChecked)
+        {
+            if (!userId) return;
+            const todayKey = getTodayDateKey();
+            const logKey = getLocalAllLogsKey(); // Use the single key for all logs
+
+            // 1. Update today's specific log state (dailyLog)
+            const newDailyLog = {
+                ...state.dailyLog,
+                [`${moduleId}_${practiceId}`]: isChecked ? 'completed' : 'pending',
+            };
+
+            // 2. Update the full history object (allLogs)
+            const updatedAllLogs = {
+                ...state.allLogs,
+                [todayKey]: {
+                    date: todayKey,
+                    practices: newDailyLog,
+                    updatedAt: new Date().toISOString()
+                }
+            };
+
+            try
+            {
+                // Update state *before* saving to local storage (for immediate re-render)
+                setState({
+                    dailyLog: newDailyLog,
+                    allLogs: updatedAllLogs // Update allLogs too
+                });
+
+                // Save the entire history object back to local storage
+                localStorage.setItem(logKey, JSON.stringify({
+                    logs: updatedAllLogs, // Note the 'logs' wrapper
+                    updatedAt: new Date().toISOString()
+                }));
+            } catch (e)
+            {
+                console.error("Error updating daily log in localStorage:", e);
+                setState({ error: "Failed to update habit tracker locally." });
+            }
+        }
+
+        // --- Config UI Handlers ---
+
+        function handleUpdateCompletionRule(moduleId, rule)
+        {
+            const newConfig = state.config.map(module =>
+            {
+                if (module.id === moduleId)
+                {
+                    return { ...module, completionRule: rule };
+                }
+                return module;
+            });
+            setState({ config: newConfig });
+            saveConfig(newConfig);
+        }
+
+        function handleAddModule(e)
+        {
+            e.preventDefault();
+            const moduleName = state.newModuleName.trim();
+            if (!moduleName) return;
+
+            const newId = moduleName.toLowerCase().replace(/\s/g, '_') + Date.now();
+            const newModule = {
+                id: newId,
+                name: moduleName,
+                icon: '🌱',
+                completionRule: 'all', // Default to 'all' for new modules
+                practices: [],
+                custom: true,
+            };
+            const newConfig = [...state.config, newModule];
+
+            setState({ newModuleName: '', config: newConfig }); // Update state and re-render
+            saveConfig(newConfig); // Persist to local storage
+        }
+
+        function handleAddPractice(e, moduleId)
+        {
+            e.preventDefault();
+            const practiceText = state.newPracticeTexts[moduleId] || '';
+
+            if (!practiceText.trim()) return;
+
+            const newConfig = state.config.map(module =>
+            {
+                if (module.id === moduleId)
+                {
+                    const newPractice = {
+                        id: practiceText.trim().toLowerCase().replace(/\s/g, '_') + Date.now(),
+                        name: practiceText.trim(),
+                        custom: true,
+                    };
+                    return {
+                        ...module,
+                        practices: [...module.practices, newPractice]
+                    };
+                }
+                return module;
+            });
+
+            const newPracticeTexts = { ...state.newPracticeTexts, [moduleId]: '' };
+            setState({ newPracticeTexts, config: newConfig }); // Update state and re-render
+            saveConfig(newConfig); // Persist to local storage
+        }
+
+        function handleRemovePractice(moduleId, practiceId)
+        {
+            const newConfig = state.config.map(module =>
+            {
+                if (module.id === moduleId)
+                {
+                    return {
+                        ...module,
+                        practices: module.practices.filter(p => p.id !== practiceId)
+                    };
+                }
+                return module;
+            });
+            setState({ config: newConfig }); // Update state and re-render
+            saveConfig(newConfig); // Persist to local storage
+        }
+
+        function handleRemoveModule(moduleId)
+        {
+            const newConfig = state.config.filter(m => m.id !== moduleId);
+            setState({ config: newConfig }); // Update state and re-render
+            saveConfig(newConfig); // Persist to local storage
+        }
+
+        // --- DOM Creation Utilities and Rendering ---
+
+        function renderLoadingState()
+        {
+            const div = document.createElement('div');
+            div.className = "fixed inset-0 flex flex-col items-center justify-center bg-slate-50 z-50";
+            div.innerHTML = `
+                <svg class="animate-spin h-10 w-10 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="mt-4 text-lg font-medium text-gray-700">Loading your Integral Practice from local browser storage...</p>
+            `;
+            return div;
+        }
+
+        function renderErrorState()
+        {
+            const div = document.createElement('div');
+            div.className = "p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg shadow-md mt-4";
+            div.innerHTML = `
+                <h3 class="font-bold text-lg">System Error</h3>
+                <p>${state.error}</p>
+                <p class="text-sm mt-2">
+                    If the error persists, please try reloading the page.
+                    <br/>User Context: <span class="font-mono bg-red-200 px-1 rounded text-xs">${userId || 'N/A'}</span>
+                    <br/>**Note: Data is saved to local browser storage only.**
+                </p>
+            `;
+            return div;
+        }
+
+        function renderHeader()
+        {
+            const header = document.createElement('header');
+            header.className = "flex flex-col sm:flex-row justify-between items-center py-4 mb-8 border-b-2 border-indigo-100";
+
+            // Title
+            const h1 = document.createElement('h1');
+            h1.className = "text-3xl font-extrabold text-indigo-900 tracking-tight flex items-center mb-4 sm:mb-0";
+            h1.innerHTML = '<span class="text-4xl mr-2">🌟</span> Integral Life Practice (Local)';
+            header.appendChild(h1);
+
+            // Nav Buttons
+            const navDiv = document.createElement('div');
+            navDiv.className = "flex space-x-3";
+
+            const createButton = (text, targetView) =>
+            {
+                const btn = document.createElement('button');
+                btn.textContent = text;
+                btn.className = `px-4 py-2 rounded-full font-semibold transition-all duration-200 ${state.view === targetView ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-indigo-600 border border-indigo-300 hover:bg-indigo-50'}`;
+                btn.addEventListener('click', () => setState({ view: targetView }));
+                return btn;
+            };
+
+            navDiv.appendChild(createButton('Daily Tracker', 'tracker'));
+            navDiv.appendChild(createButton('Design ILP', 'config'));
+            navDiv.appendChild(createButton('History', 'history')); // New History button
+            header.appendChild(navDiv);
+
+            // User ID
+            const userIdP = document.createElement('p');
+            userIdP.className = "text-xs text-slate-500 mt-4 sm:mt-0 sm:text-right w-full sm:w-auto";
+            userIdP.textContent = `Local User Context: ${userId}`;
+            header.appendChild(userIdP);
+
+            return header;
+        }
+
+        function createPracticeCard(module)
+        {
+            const moduleCompleted = isModuleCompleted(module, state.dailyLog);
+            const isChooseOne = module.completionRule === 'choose_one';
+
+            const card = document.createElement('div');
+            card.className = `p-4 border-2 rounded-xl shadow-lg transition-all duration-300 ${moduleCompleted ? 'bg-green-50 border-green-300' : 'bg-white border-slate-200 hover:shadow-xl'}`;
+
+            const completionText = isChooseOne
+                ? 'Complete ONE practice below to satisfy this module.'
+                : 'Complete ALL practices below to satisfy this module.';
+
+            const completionStyle = moduleCompleted ? 'text-green-600' : 'text-slate-500';
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-3 border-b pb-2">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-2">${module.icon}</span>
+                        <h3 class="text-xl font-semibold ${moduleCompleted ? 'text-green-700' : 'text-indigo-700'}">${module.name}</h3>
+                    </div>
+                    <p class="text-xs font-medium ${completionStyle}">${moduleCompleted ? 'COMPLETED' : 'IN PROGRESS'}</p>
+                </div>
+                <p class="text-xs mb-3 ${completionStyle} italic">${completionText}</p>
+                <ul class="space-y-2" id="practices-list-${module.id}"></ul>
+            `;
+
+            const ul = card.querySelector(`#practices-list-${module.id}`);
+
+            module.practices.forEach(practice =>
+            {
+                const isCompleted = state.dailyLog[`${module.id}_${practice.id}`] === 'completed';
+
+                const li = document.createElement('li');
+                li.className = `flex items-center p-2 rounded-lg cursor-pointer transition-colors duration-200 ${isCompleted ? 'bg-green-100 text-green-800' : 'hover:bg-indigo-50 bg-slate-50'}`;
+                li.addEventListener('click', () => togglePractice(module.id, practice.id, !isCompleted));
+
+                // Checkbox and Text
+                li.innerHTML = `
+                    <input
+                        type="checkbox"
+                        ${isCompleted ? 'checked' : ''}
+                        readonly
+                        class="form-checkbox h-5 w-5 rounded transition duration-150 ease-in-out ${isCompleted ? 'text-green-600 border-green-500 bg-green-200 focus:ring-green-500' : 'text-indigo-600 border-gray-300 focus:ring-indigo-500'}"
+                    />
+                    <span class="ml-3 text-sm font-medium ${isCompleted ? 'line-through opacity-70' : 'text-gray-800'}">
+                        ${practice.name}
+                    </span>
+                `;
+                ul.appendChild(li);
+            });
+
+            return card;
+        }
+
+        function renderTrackerView()
+        {
+            const div = document.createElement('div');
+            div.className = "space-y-6";
+
+            div.innerHTML = `<h2 class="text-2xl font-extrabold text-slate-800">Today's ILP (${getTodayDateKey()})</h2>`;
+
+            const grid = document.createElement('div');
+            grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+
+            state.config.forEach(module =>
+            {
+                grid.appendChild(createPracticeCard(module));
+            });
+
+            div.appendChild(grid);
+            return div;
+        }
+
+        function renderConfigView()
+        {
+            const div = document.createElement('div');
+            div.className = "space-y-8";
+
+            div.innerHTML = `
+                <h2 class="text-2xl font-extrabold text-slate-800">Design Your Integral Life Practice</h2>
+                <p class="text-slate-600">Add or remove practices in your modules. This is your personal blueprint!</p>
+                
+                <!-- Add New Module Form -->
+                <form id="add-module-form" class="bg-indigo-50 p-6 rounded-xl shadow-inner border border-indigo-200">
+                    <h3 class="text-xl font-semibold mb-3 text-indigo-700">Add a New Module (e.g., Relationships, Work)</h3>
+                    <div class="flex space-x-3">
+                        <input
+                            type="text"
+                            id="new-module-name"
+                            value="${state.newModuleName}"
+                            placeholder="Module Name (e.g., 'Work Mastery')"
+                            class="flex-grow p-2 border border-indigo-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition duration-150 shadow-md">
+                            Add Module
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Module List Container -->
+                <div id="module-list" class="space-y-6"></div>
+            `;
+
+            // Setup Add Module Form listener and state update for input
+            const form = div.querySelector('#add-module-form');
+            form.addEventListener('submit', handleAddModule);
+            const input = div.querySelector('#new-module-name');
+            input.addEventListener('input', (e) =>
+            {
+                // Update state *without* forcing a full re-render for simple text input
+                state.newModuleName = e.target.value;
+            });
+
+
+            const moduleListContainer = div.querySelector('#module-list');
+
+            state.config.forEach(module =>
+            {
+                const moduleDiv = document.createElement('div');
+                moduleDiv.className = "bg-white p-5 rounded-xl shadow-lg border border-slate-200";
+
+                moduleDiv.innerHTML = `
+                    <div class="flex justify-between items-start mb-3 border-b pb-2">
+                        <h4 class="text-lg font-bold text-slate-800 flex items-center">
+                            <span class="mr-2 text-xl">${module.icon}</span> 
+                            ${module.name}
+                        </h4>
+                        ${module.custom ? `<button data-module-id="${module.id}" class="remove-module-btn text-red-500 text-sm hover:text-red-700 transition-colors">
+                            Remove Module
+                        </button>` : ''}
+                    </div>
+
+                    <!-- New Completion Rule Control -->
+                    <div class="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                        <h5 class="text-sm font-semibold mb-2 text-slate-700">Module Completion Rule:</h5>
+                        <div class="flex space-x-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="rule-${module.id}" 
+                                    value="all" 
+                                    ${module.completionRule === 'all' ? 'checked' : ''} 
+                                    data-module-id="${module.id}"
+                                    class="rule-radio h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                >
+                                <span class="ml-2 text-sm text-slate-700">Complete ALL Practices</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="rule-${module.id}" 
+                                    value="choose_one" 
+                                    ${module.completionRule === 'choose_one' ? 'checked' : ''} 
+                                    data-module-id="${module.id}"
+                                    class="rule-radio h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                >
+                                <span class="ml-2 text-sm text-slate-700">Complete ONE Practice</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <ul class="space-y-2 mb-4">
+                        ${module.practices.map(practice => `
+                            <li key="${practice.id}" class="flex justify-between items-center bg-slate-50 p-2 rounded-md border border-slate-100">
+                                <span class="text-sm">${practice.name}</span>
+                                <button data-module-id="${module.id}" data-practice-id="${practice.id}" class="remove-practice-btn text-red-400 hover:text-red-600 text-xs font-semibold px-2 py-1 transition-colors">
+                                    &times; Remove
+                                </button>
+                            </li>
+                        `).join('')}
+                    </ul>
+
+                    <!-- Add Practice Form for this module -->
+                    <form data-module-id="${module.id}" class="add-practice-form mt-4 flex space-x-2">
+                        <input
+                            type="text"
+                            data-module-id="${module.id}"
+                            value="${state.newPracticeTexts[module.id] || ''}"
+                            placeholder="New practice for ${module.name}"
+                            class="practice-input flex-grow p-2 border border-slate-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <button 
+                            type="submit" 
+                            class="bg-indigo-500 text-white text-sm px-3 py-1 rounded-lg hover:bg-indigo-600 transition duration-150"
+                        >
+                            Add Practice
+                        </button>
+                    </form>
+                `;
+
+                moduleListContainer.appendChild(moduleDiv);
+            });
+
+            // Setup event listeners for the dynamically created elements
+
+            // Completion Rule Radio Buttons
+            div.querySelectorAll('.rule-radio').forEach(radio =>
+            {
+                radio.addEventListener('change', (e) =>
+                {
+                    handleUpdateCompletionRule(e.target.dataset.moduleId, e.target.value);
+                });
+            });
+
+            // Remove Module
+            div.querySelectorAll('.remove-module-btn').forEach(btn =>
+            {
+                btn.addEventListener('click', (e) => handleRemoveModule(e.target.dataset.moduleId));
+            });
+
+            // Remove Practice
+            div.querySelectorAll('.remove-practice-btn').forEach(btn =>
+            {
+                btn.addEventListener('click', (e) => handleRemovePractice(e.target.dataset.moduleId, e.target.dataset.practiceId));
+            });
+
+            // Add Practice Form submission
+            div.querySelectorAll('.add-practice-form').forEach(form =>
+            {
+                form.addEventListener('submit', (e) => handleAddPractice(e, form.dataset.moduleId));
+            });
+
+            // Practice Input handling (must update state on input without full re-render)
+            div.querySelectorAll('.practice-input').forEach(input =>
+            {
+                input.addEventListener('input', (e) =>
+                {
+                    const moduleId = e.target.dataset.moduleId;
+                    // Update state object directly to prevent full re-render while typing
+                    state.newPracticeTexts = { ...state.newPracticeTexts, [moduleId]: e.target.value };
+                });
+            });
+
+            return div;
+        }
+
+        function renderHistoryView()
+        {
+            const div = document.createElement('div');
+            div.className = "space-y-6";
+
+            div.innerHTML = `
+                <h2 class="text-2xl font-extrabold text-slate-800">Practice History Review</h2>
+                <p class="text-slate-600">Review your past **Module Completion Rate**. This respects your "Complete One" or "Complete All" rules.</p>
+            `;
+
+            const historyContainer = document.createElement('div');
+            historyContainer.className = "space-y-3";
+
+            const logDates = Object.keys(state.allLogs).sort().reverse(); // Sort descending (most recent first)
+
+            if (logDates.length === 0)
+            {
+                historyContainer.innerHTML = '<p class="p-4 bg-yellow-100 rounded-xl text-yellow-800 border border-yellow-300">No practice logs found yet. Start tracking your habits on the Daily Tracker!</p>';
+            } else
+            {
+
+                const todayKey = getTodayDateKey();
+                const totalModules = state.config.length;
+
+                logDates.forEach(dateKey =>
+                {
+                    const logEntry = state.allLogs[dateKey];
+
+                    // Calculate stats based on MODULE completion
+                    const completedModulesCount = state.config.filter(module =>
+                        isModuleCompleted(module, logEntry.practices)
+                    ).length;
+
+                    const completionPercentage = totalModules > 0 ? Math.round((completedModulesCount / totalModules) * 100) : 0;
+
+                    const isToday = dateKey === todayKey;
+
+                    let cardColor = 'bg-white';
+                    let borderColor = 'border-slate-300';
+                    let percentageColor = 'text-gray-600';
+
+                    if (isToday)
+                    {
+                        cardColor = 'bg-indigo-100';
+                        borderColor = 'border-indigo-500';
+                        percentageColor = 'text-indigo-700';
+                    } else if (completionPercentage >= 75)
+                    {
+                        cardColor = 'bg-green-100';
+                        borderColor = 'border-green-400';
+                        percentageColor = 'text-green-700';
+                    } else if (completionPercentage > 0)
+                    {
+                        cardColor = 'bg-yellow-100';
+                        borderColor = 'border-yellow-400';
+                        percentageColor = 'text-yellow-700';
+                    }
+
+                    const historyCard = document.createElement('div');
+                    historyCard.className = `p-4 border-2 ${borderColor} ${cardColor} rounded-xl shadow-md flex justify-between items-center transition-all duration-300 hover:shadow-lg cursor-default`;
+
+                    historyCard.innerHTML = `
+                        <div>
+                            <p class="text-lg font-bold ${isToday ? 'text-indigo-800' : 'text-slate-800'}">
+                                ${dateKey} ${isToday ? ' (Today)' : ''}
+                            </p>
+                            <p class="text-sm text-slate-600">${completedModulesCount} / ${totalModules} Modules Completed</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-3xl font-extrabold ${percentageColor}">${completionPercentage}%</span>
+                        </div>
+                    `;
+
+                    historyContainer.appendChild(historyCard);
+                });
+            }
+
+            div.appendChild(historyContainer);
+            return div;
+        }
+
+        function renderApp()
+        {
+            const appContainer = document.getElementById('app');
+            appContainer.innerHTML = ''; // Clear previous content
+
+            if (state.loading)
+            {
+                appContainer.appendChild(renderLoadingState());
+                return;
+            }
+
+            // Render Header
+            appContainer.appendChild(renderHeader());
+
+            // Render Error (if any)
+            if (state.error)
+            {
+                appContainer.appendChild(renderErrorState());
+            }
+
+            // Render Main Content
+            const main = document.createElement('main');
+            if (state.view === 'tracker')
+            {
+                main.appendChild(renderTrackerView());
+            } else if (state.view === 'config')
+            {
+                main.appendChild(renderConfigView());
+            } else if (state.view === 'history')
+            {
+                main.appendChild(renderHistoryView());
+            }
+            appContainer.appendChild(main);
+        }
+
+        // --- Initial Call ---
+        window.onload = initApp;
+    </script>
+</body>
+
+</html>
