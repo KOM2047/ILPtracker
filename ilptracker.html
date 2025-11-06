@@ -8,6 +8,10 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#4f46e5">
     <style>
         /* Custom styles for consistency and aesthetics */
         body {
@@ -796,8 +800,10 @@
             appContainer.appendChild(main);
         }
 
-        // --- Initial Call ---
-        window.onload = initApp;
+        if ('serviceWorker' in navigator)
+        {
+            navigator.serviceWorker.register('service-worker.js');
+        }
     </script>
 </body>
 
