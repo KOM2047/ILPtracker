@@ -85,12 +85,6 @@ Because this is a single HTML file, usage depends on how the app is implemented 
 - If you add JavaScript modules, stylesheets, or assets, keep them in a clear directory structure (e.g., `css/`, `js/`, `assets/`).
 - Consider splitting large inline scripts into `js/` files for maintainability.
 
-## Suggestions / Next steps
-
-- Add a short description inside `ilptracker.html` (HTML comments or a README section) explaining the project's purpose, any external dependencies, and sample input data.
-- If you want to publish the app, host the folder as static site (GitHub Pages, Netlify, Vercel).
-- Add a license file (e.g., `LICENSE`) and CONTRIBUTING.md if you expect collaborators.
-
 ## License
 
 This repository does not include a license file. If you want to open-source the project, consider adding an `LICENSE` (MIT, Apache-2.0, etc.).
