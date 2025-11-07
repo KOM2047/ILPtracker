@@ -5,12 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Integral Life Practice Tracker</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-    <link rel="apple-touch-icon" href="icon-192.png">
     <meta name="theme-color" content="#4f46e5">
     <style>
         /* Custom styles for consistency and aesthetics */
@@ -26,13 +22,11 @@
 </head>
 
 <body class="bg-slate-50 min-h-screen">
-    <!-- Main container for the application -->
     <div id="app" class="max-w-6xl mx-auto p-4 sm:p-8">
-        <!-- Content will be dynamically rendered by JavaScript -->
     </div>
 
-    <!-- Load Firebase Auth (only for mandatory environment userId) and Application Logic -->
     <script type="module">
+        // **CORRECTION:** Changed relative paths to absolute CDN URLs for Firebase imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         // NOTE: Firestore imports (getFirestore, doc, setDoc, onSnapshot, serverTimestamp) have been removed,
@@ -62,10 +56,10 @@
 
         const CORE_MODULES = [
             // Added completionRule: 'all' as the default for existing modules
-            { id: 'body', name: 'Body', icon: '🏃', completionRule: 'all', practices: ['Yoga', 'Cardio', 'Nutrition'] },
-            { id: 'mind', name: 'Mind', icon: '🧠', completionRule: 'all', practices: ['Study', 'Concentration', 'Journaling'] },
-            { id: 'spirit', name: 'Spirit', icon: '✨', completionRule: 'all', practices: ['Meditation', 'Contemplation'] },
-            { id: 'shadow', name: 'Shadow', icon: '🌑', completionRule: 'all', practices: ['Inquiry', 'Therapy'] },
+            { id: 'body', name: 'Body', icon: '純', completionRule: 'all', practices: ['Yoga', 'Cardio', 'Nutrition'] },
+            { id: 'mind', name: 'Mind', icon: 'ｧ', completionRule: 'all', practices: ['Study', 'Concentration', 'Journaling'] },
+            { id: 'spirit', name: 'Spirit', icon: '笨ｨ', completionRule: 'all', practices: ['Meditation', 'Contemplation'] },
+            { id: 'shadow', name: 'Shadow', icon: '倦', completionRule: 'all', practices: ['Inquiry', 'Therapy'] },
         ];
 
         // --- Core Logic Helper ---
@@ -314,7 +308,7 @@
             const newModule = {
                 id: newId,
                 name: moduleName,
-                icon: '🌱',
+                icon: '験',
                 completionRule: 'all', // Default to 'all' for new modules
                 practices: [],
                 custom: true,
@@ -418,7 +412,7 @@
             // Title
             const h1 = document.createElement('h1');
             h1.className = "text-3xl font-extrabold text-indigo-900 tracking-tight flex items-center mb-4 sm:mb-0";
-            h1.innerHTML = '<span class="text-4xl mr-2">🌟</span> Integral Life Practice (Local)';
+            h1.innerHTML = '<span class="text-4xl mr-2">検</span> Integral Life Practice (Local)';
             header.appendChild(h1);
 
             // Nav Buttons
@@ -530,7 +524,6 @@
                 <h2 class="text-2xl font-extrabold text-slate-800">Design Your Integral Life Practice</h2>
                 <p class="text-slate-600">Add or remove practices in your modules. This is your personal blueprint!</p>
                 
-                <!-- Add New Module Form -->
                 <form id="add-module-form" class="bg-indigo-50 p-6 rounded-xl shadow-inner border border-indigo-200">
                     <h3 class="text-xl font-semibold mb-3 text-indigo-700">Add a New Module (e.g., Relationships, Work)</h3>
                     <div class="flex space-x-3">
@@ -547,7 +540,6 @@
                     </div>
                 </form>
 
-                <!-- Module List Container -->
                 <div id="module-list" class="space-y-6"></div>
             `;
 
@@ -580,7 +572,6 @@
                         </button>` : ''}
                     </div>
 
-                    <!-- New Completion Rule Control -->
                     <div class="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
                         <h5 class="text-sm font-semibold mb-2 text-slate-700">Module Completion Rule:</h5>
                         <div class="flex space-x-4">
@@ -620,7 +611,6 @@
                         `).join('')}
                     </ul>
 
-                    <!-- Add Practice Form for this module -->
                     <form data-module-id="${module.id}" class="add-practice-form mt-4 flex space-x-2">
                         <input
                             type="text"
@@ -800,10 +790,10 @@
             appContainer.appendChild(main);
         }
 
-        if ('serviceWorker' in navigator)
-        {
-            navigator.serviceWorker.register('service-worker.js');
-        }
+        // **REMOVED:** Service Worker registration which was looking for service-worker.js
+
+        // Start the application initialization
+        initApp();
     </script>
 </body>
 
