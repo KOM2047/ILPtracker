@@ -1,16 +1,1 @@
-{
-    "name": "Integral Life Practice Tracker",
-    "short_name": "ILP Tracker",
-    "start_url": "./ilptracker.html",
-    "display": "standalone",
-    "background_color": "#f8fafc",
-    "theme_color": "#6366f1",
-    "description": "Track your Integral Life Practice modules and habits offline.",
-    "icons": [
-        {
-            "src": "icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        }
-    ]
-}
+
