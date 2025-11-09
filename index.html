@@ -19,14 +19,9 @@
             min-height: 1.25rem;
         }
 
-        /* Tailwind Dark Mode Setup: We target the parent <html> data attribute.
-           
-           NOTE: For the body background, we need to apply the dark background 
-           here so the entire screen background is consistently dark.
-        */
+        /* Dark Mode: Ensure the body background is consistent */
         html[data-mode="dark"] body {
             background-color: #1f2937;
-            /* Equivalent to bg-gray-800 */
         }
     </style>
 </head>
@@ -39,9 +34,8 @@
         // **CORRECTION:** Changed relative paths to absolute CDN URLs for Firebase imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // NOTE: Firestore imports (getFirestore, doc, setDoc, onSnapshot, serverTimestamp) have been removed,
-        // as we are using localStorage for data persistence.
 
+        // --- Global Variables (Provided by Canvas Environment) ---
         let auth = null;
         let userId = null;
 
@@ -55,17 +49,17 @@
             view: 'tracker', // 'tracker', 'config', or 'history'
             newModuleName: '',
             newPracticeTexts: {}, // { moduleId: text, ... }
-            darkMode: false, // NEW: Dark Mode state
+            darkMode: false,
+            selectedLogDate: null, // NEW: For history detail view
         };
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'ilp-default-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? JSON.parse(__initial_auth_token) : null;
 
         const getTodayDateKey = () => new Date().toISOString().split('T')[0];
 
         const CORE_MODULES = [
-            // Added completionRule: 'all' as the default for existing modules
             { id: 'body', name: 'Body', icon: '純', completionRule: 'all', practices: ['Yoga', 'Cardio', 'Nutrition'] },
             { id: 'mind', name: 'Mind', icon: 'ｧ', completionRule: 'all', practices: ['Study', 'Concentration', 'Journaling'] },
             { id: 'spirit', name: 'Spirit', icon: '笨ｨ', completionRule: 'all', practices: ['Meditation', 'Contemplation'] },
@@ -110,7 +104,55 @@
             saveDarkModePreference(newMode);
         }
 
+        // --- Date/Week Helper Functions (NEW) ---
+
+        /**
+         * Calculates the Sunday (start) of the week for a given date key.
+         * @param {string} dateKey - 'YYYY-MM-DD'
+         * @returns {string} - 'YYYY-MM-DD' for Sunday
+         */
+        function getWeekStartKey(dateKey)
+        {
+            const date = new Date(dateKey + 'T00:00:00');
+            const day = date.getDay(); // 0 is Sunday
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - day);
+            return weekStart.toISOString().split('T')[0];
+        }
+
+        /**
+         * Formats the week range for display (Sunday - Saturday).
+         * @param {string} weekStartKey - 'YYYY-MM-DD' for Sunday
+         * @returns {string} - Formatted date range string
+         */
+        function formatWeekRange(weekStartKey)
+        {
+            const start = new Date(weekStartKey + 'T00:00:00');
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6); // Saturday
+
+            const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const yearStr = end.toLocaleDateString('en-US', { year: 'numeric' });
+
+            if (start.getFullYear() === end.getFullYear())
+            {
+                return `${startStr} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            }
+            return `${startStr}, ${start.getFullYear()} – ${endStr}`;
+        }
+
         // --- Core Logic Helper ---
+
+        /**
+         * Finds a module in config by its ID.
+         * @param {string} moduleId 
+         * @returns {Object|undefined}
+         */
+        function getModuleById(moduleId)
+        {
+            return state.config.find(m => m.id === moduleId);
+        }
 
         /**
          * Determines if a module is completed based on its rule and the daily log.
@@ -150,12 +192,10 @@
 
         async function initApp()
         {
-            // NEW: Load dark mode preference before the main render
             loadDarkModePreference();
 
             try
             {
-                // Initialize Firebase only for mandatory environment auth, not for data storage
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
 
@@ -181,7 +221,7 @@
                         } catch (e)
                         {
                             console.error('Auth error during sign-in attempt. Using fallback ID.', e);
-                            userId = 'local-user-session'; // Fallback to a fixed local ID
+                            userId = 'local-user-session';
                         }
                     }
                 });
@@ -189,7 +229,7 @@
             } catch (e)
             {
                 console.error("Initialization failed. Using local fallback.", e);
-                userId = 'local-user-session'; // Fallback to a fixed local ID
+                userId = 'local-user-session';
                 setState({ loading: false });
                 loadConfig();
                 loadDailyLog();
@@ -197,7 +237,7 @@
         }
 
         function getLocalConfigKey() { return `ilp_config_${userId}`; }
-        function getLocalAllLogsKey() { return `ilp_all_logs_${userId}`; } // Single key for all logs
+        function getLocalAllLogsKey() { return `ilp_all_logs_${userId}`; }
 
         // --- Data Loaders (Local Storage Readers) ---
 
@@ -211,17 +251,14 @@
                 try
                 {
                     const parsedConfig = JSON.parse(storedConfig).modules;
-                    // Ensure all loaded modules have the completionRule, defaulting to 'all' if missing (for legacy data)
                     const normalizedConfig = parsedConfig.map(m => ({
                         ...m,
                         completionRule: m.completionRule || 'all'
                     }));
                     setState({ config: normalizedConfig });
-                    console.log('ILP Config loaded and normalized from localStorage.');
                 } catch (e)
                 {
                     console.error("Error parsing stored config:", e);
-                    // Re-initialize with core modules if parsing fails
                     initializeDefaultConfig();
                 }
             } else if (state.config.length === 0)
@@ -232,22 +269,21 @@
 
         function initializeDefaultConfig()
         {
-            // Initialize with default modules if no config exists
             const initialConfig = CORE_MODULES.map(m => ({
                 ...m,
-                completionRule: m.completionRule || 'all', // Ensure rule is set
+                completionRule: m.completionRule || 'all',
                 practices: m.practices.map(p => ({ id: p.toLowerCase().replace(/\s/g, '_'), name: p, custom: false }))
             }));
 
             setState({ config: initialConfig });
-            saveConfig(initialConfig); // Save defaults immediately
+            saveConfig(initialConfig);
         }
 
 
         function loadDailyLog()
         {
             const todayKey = getTodayDateKey();
-            const logKey = getLocalAllLogsKey(); // Single key for all logs
+            const logKey = getLocalAllLogsKey();
             const storedLogs = localStorage.getItem(logKey);
 
             let allLogs = {};
@@ -256,14 +292,12 @@
                 try
                 {
                     allLogs = JSON.parse(storedLogs).logs || {};
-                    console.log(`All logs loaded from localStorage. Total days: ${Object.keys(allLogs).length}`);
                 } catch (e)
                 {
                     console.error("Error parsing stored logs:", e);
                 }
             }
 
-            // Set today's log from the loaded history, or default to empty object
             const todayLog = allLogs[todayKey] ? allLogs[todayKey].practices : {};
 
             setState({
@@ -281,21 +315,19 @@
 
             try
             {
-                // Save the whole structure under 'modules' key for consistency
                 localStorage.setItem(configKey, JSON.stringify({ modules: newConfig, updatedAt: new Date().toISOString() }));
             } catch (e)
             {
                 console.error("Error saving config to localStorage:", e);
                 setState({ error: "Failed to save configuration locally." });
             }
-            // Configuration is updated implicitly when setState is called by config handlers
         }
 
         function togglePractice(moduleId, practiceId, isChecked)
         {
             if (!userId) return;
             const todayKey = getTodayDateKey();
-            const logKey = getLocalAllLogsKey(); // Use the single key for all logs
+            const logKey = getLocalAllLogsKey();
 
             // 1. Update today's specific log state (dailyLog)
             const newDailyLog = {
@@ -315,15 +347,13 @@
 
             try
             {
-                // Update state *before* saving to local storage (for immediate re-render)
                 setState({
                     dailyLog: newDailyLog,
-                    allLogs: updatedAllLogs // Update allLogs too
+                    allLogs: updatedAllLogs
                 });
 
-                // Save the entire history object back to local storage
                 localStorage.setItem(logKey, JSON.stringify({
-                    logs: updatedAllLogs, // Note the 'logs' wrapper
+                    logs: updatedAllLogs,
                     updatedAt: new Date().toISOString()
                 }));
             } catch (e)
@@ -333,7 +363,7 @@
             }
         }
 
-        // --- Config UI Handlers ---
+        // --- Config UI Handlers (omitted for brevity, assume unchanged) ---
 
         function handleUpdateCompletionRule(moduleId, rule)
         {
@@ -360,14 +390,14 @@
                 id: newId,
                 name: moduleName,
                 icon: '験',
-                completionRule: 'all', // Default to 'all' for new modules
+                completionRule: 'all',
                 practices: [],
                 custom: true,
             };
             const newConfig = [...state.config, newModule];
 
-            setState({ newModuleName: '', config: newConfig }); // Update state and re-render
-            saveConfig(newConfig); // Persist to local storage
+            setState({ newModuleName: '', config: newConfig });
+            saveConfig(newConfig);
         }
 
         function handleAddPractice(e, moduleId)
@@ -395,8 +425,8 @@
             });
 
             const newPracticeTexts = { ...state.newPracticeTexts, [moduleId]: '' };
-            setState({ newPracticeTexts, config: newConfig }); // Update state and re-render
-            saveConfig(newConfig); // Persist to local storage
+            setState({ newPracticeTexts, config: newConfig });
+            saveConfig(newConfig);
         }
 
         function handleRemovePractice(moduleId, practiceId)
@@ -412,23 +442,35 @@
                 }
                 return module;
             });
-            setState({ config: newConfig }); // Update state and re-render
-            saveConfig(newConfig); // Persist to local storage
+            setState({ config: newConfig });
+            saveConfig(newConfig);
         }
 
         function handleRemoveModule(moduleId)
         {
             const newConfig = state.config.filter(m => m.id !== moduleId);
-            setState({ config: newConfig }); // Update state and re-render
-            saveConfig(newConfig); // Persist to local storage
+            setState({ config: newConfig });
+            saveConfig(newConfig);
         }
+
+        // --- History Handlers (NEW) ---
+
+        function handleDayLogClick(dateKey)
+        {
+            setState({ selectedLogDate: dateKey });
+        }
+
+        function handleCloseModal()
+        {
+            setState({ selectedLogDate: null });
+        }
+
 
         // --- DOM Creation Utilities and Rendering ---
 
         function renderLoadingState()
         {
             const div = document.createElement('div');
-            // UPDATED: Dark mode colors
             div.className = "fixed inset-0 flex flex-col items-center justify-center bg-slate-50 dark:bg-gray-800 z-50";
             div.innerHTML = `
                 <svg class="animate-spin h-10 w-10 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -463,7 +505,6 @@
 
             // Title
             const h1 = document.createElement('h1');
-            // UPDATED: Dark mode title color
             h1.className = "text-3xl font-extrabold text-indigo-900 dark:text-indigo-200 tracking-tight flex items-center mb-4 sm:mb-0";
             h1.innerHTML = '<span class="text-4xl mr-2">検</span> Integral Life Practice (Local)';
             header.appendChild(h1);
@@ -480,7 +521,6 @@
             {
                 const btn = document.createElement('button');
                 btn.textContent = text;
-                // UPDATED: Dark mode button classes
                 btn.className = `px-4 py-2 rounded-full font-semibold transition-all duration-200 ${state.view === targetView
                         ? 'bg-indigo-600 text-white shadow-lg'
                         : 'bg-white text-indigo-600 border border-indigo-300 dark:bg-gray-700 dark:text-indigo-400 dark:border-indigo-900 hover:bg-indigo-50 dark:hover:bg-gray-600'
@@ -494,27 +534,47 @@
             navDiv.appendChild(createButton('History', 'history'));
             navContainer.appendChild(navDiv);
 
-            // NEW: Dark Mode Toggle Button
+            // Dark Mode Toggle Button
             const modeToggleBtn = document.createElement('button');
             modeToggleBtn.className = 'p-2 rounded-full text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors shadow-md';
             modeToggleBtn.innerHTML = state.darkMode
-                ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>' // Sun icon
-                : '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>'; // Moon icon
+                ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>';
 
             modeToggleBtn.addEventListener('click', toggleDarkMode);
             navContainer.appendChild(modeToggleBtn);
 
-            // Append Nav Container
             header.appendChild(navContainer);
 
             // User ID
             const userIdP = document.createElement('p');
-            // UPDATED: Dark mode text color
             userIdP.className = "text-xs text-slate-500 dark:text-slate-400 mt-4 sm:mt-0 sm:text-right w-full sm:w-auto";
             userIdP.textContent = `Local User Context: ${userId}`;
             header.appendChild(userIdP);
 
             return header;
+        }
+
+        // --- Render Views (Tracker/Config omitted for brevity, assumed unchanged) ---
+        // ... (renderTrackerView, renderConfigView)
+
+        function renderTrackerView()
+        {
+            const div = document.createElement('div');
+            div.className = "space-y-6";
+
+            div.innerHTML = `<h2 class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">Today's ILP (${getTodayDateKey()})</h2>`;
+
+            const grid = document.createElement('div');
+            grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+
+            state.config.forEach(module =>
+            {
+                grid.appendChild(createPracticeCard(module));
+            });
+
+            div.appendChild(grid);
+            return div;
         }
 
         function createPracticeCard(module)
@@ -523,7 +583,6 @@
             const isChooseOne = module.completionRule === 'choose_one';
 
             const card = document.createElement('div');
-            // UPDATED: Dark mode card classes
             card.className = `p-4 border-2 rounded-xl shadow-lg transition-all duration-300 ${moduleCompleted
                     ? 'bg-green-50 border-green-300 dark:bg-green-900 dark:border-green-700'
                     : 'bg-white border-slate-200 hover:shadow-xl dark:bg-gray-700 dark:border-gray-600 dark:hover:shadow-2xl'
@@ -535,7 +594,6 @@
 
             const completionStyle = moduleCompleted ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400';
 
-            // UPDATED: Dark mode text and border classes inside the card
             card.innerHTML = `
                 <div class="flex items-center justify-between mb-3 border-b pb-2 border-indigo-100 dark:border-indigo-800">
                     <div class="flex items-center">
@@ -558,14 +616,12 @@
                 const isCompleted = state.dailyLog[`${module.id}_${practice.id}`] === 'completed';
 
                 const li = document.createElement('li');
-                // UPDATED: Dark mode list item background and text
                 li.className = `flex items-center p-2 rounded-lg cursor-pointer transition-colors duration-200 ${isCompleted
                         ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                         : 'hover:bg-indigo-50 bg-slate-50 dark:bg-gray-600 dark:hover:bg-gray-500'
                     }`;
                 li.addEventListener('click', () => togglePractice(module.id, practice.id, !isCompleted));
 
-                // Checkbox and Text
                 li.innerHTML = `
                     <input
                         type="checkbox"
@@ -589,36 +645,15 @@
             return card;
         }
 
-        function renderTrackerView()
-        {
-            const div = document.createElement('div');
-            div.className = "space-y-6";
-
-            // UPDATED: Dark mode text color
-            div.innerHTML = `<h2 class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">Today's ILP (${getTodayDateKey()})</h2>`;
-
-            const grid = document.createElement('div');
-            grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
-
-            state.config.forEach(module =>
-            {
-                grid.appendChild(createPracticeCard(module));
-            });
-
-            div.appendChild(grid);
-            return div;
-        }
-
         function renderConfigView()
         {
             const div = document.createElement('div');
             div.className = "space-y-8";
 
-            // UPDATED: Dark mode text and element background colors
             div.innerHTML = `
                 <h2 class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">Design Your Integral Life Practice</h2>
                 <p class="text-slate-600 dark:text-slate-400">Add or remove practices in your modules. This is your personal blueprint!</p>
-                
+
                 <form id="add-module-form" class="bg-indigo-50 dark:bg-indigo-900 p-6 rounded-xl shadow-inner border border-indigo-200 dark:border-indigo-800">
                     <h3 class="text-xl font-semibold mb-3 text-indigo-700 dark:text-indigo-300">Add a New Module (e.g., Relationships, Work)</h3>
                     <div class="flex space-x-3">
@@ -644,7 +679,6 @@
             const input = div.querySelector('#new-module-name');
             input.addEventListener('input', (e) =>
             {
-                // Update state *without* forcing a full re-render for simple text input
                 state.newModuleName = e.target.value;
             });
 
@@ -654,14 +688,12 @@
             state.config.forEach(module =>
             {
                 const moduleDiv = document.createElement('div');
-                // UPDATED: Dark mode card classes
                 moduleDiv.className = "bg-white dark:bg-gray-700 p-5 rounded-xl shadow-lg border border-slate-200 dark:border-gray-600";
 
-                // UPDATED: Dark mode text and input classes
                 moduleDiv.innerHTML = `
                     <div class="flex justify-between items-start mb-3 border-b pb-2 border-slate-200 dark:border-gray-600">
                         <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
-                            <span class="mr-2 text-xl">${module.icon}</span> 
+                            <span class="mr-2 text-xl">${module.icon}</span>
                             ${module.name}
                         </h4>
                         ${module.custom ? `<button data-module-id="${module.id}" class="remove-module-btn text-red-500 dark:text-red-400 text-sm hover:text-red-700 dark:hover:text-red-300 transition-colors">
@@ -673,22 +705,22 @@
                         <h5 class="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Module Completion Rule:</h5>
                         <div class="flex space-x-4 text-slate-700 dark:text-slate-300">
                             <label class="flex items-center cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="rule-${module.id}" 
-                                    value="all" 
-                                    ${module.completionRule === 'all' ? 'checked' : ''} 
+                                <input
+                                    type="radio"
+                                    name="rule-${module.id}"
+                                    value="all"
+                                    ${module.completionRule === 'all' ? 'checked' : ''}
                                     data-module-id="${module.id}"
                                     class="rule-radio h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-500 focus:ring-indigo-500"
                                 >
                                 <span class="ml-2 text-sm text-slate-700 dark:text-slate-300">Complete ALL Practices</span>
                             </label>
                             <label class="flex items-center cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="rule-${module.id}" 
-                                    value="choose_one" 
-                                    ${module.completionRule === 'choose_one' ? 'checked' : ''} 
+                                <input
+                                    type="radio"
+                                    name="rule-${module.id}"
+                                    value="choose_one"
+                                    ${module.completionRule === 'choose_one' ? 'checked' : ''}
                                     data-module-id="${module.id}"
                                     class="rule-radio h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-500 focus:ring-indigo-500"
                                 >
@@ -716,8 +748,8 @@
                             placeholder="New practice for ${module.name}"
                             class="practice-input flex-grow p-2 border border-slate-300 dark:border-gray-500 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:text-white"
                         />
-                        <button 
-                            type="submit" 
+                        <button
+                            type="submit"
                             class="bg-indigo-500 text-white text-sm px-3 py-1 rounded-lg hover:bg-indigo-600 transition duration-150"
                         >
                             Add Practice
@@ -729,8 +761,6 @@
             });
 
             // Setup event listeners for the dynamically created elements
-
-            // Completion Rule Radio Buttons
             div.querySelectorAll('.rule-radio').forEach(radio =>
             {
                 radio.addEventListener('change', (e) =>
@@ -739,31 +769,26 @@
                 });
             });
 
-            // Remove Module
             div.querySelectorAll('.remove-module-btn').forEach(btn =>
             {
                 btn.addEventListener('click', (e) => handleRemoveModule(e.target.dataset.moduleId));
             });
 
-            // Remove Practice
             div.querySelectorAll('.remove-practice-btn').forEach(btn =>
             {
                 btn.addEventListener('click', (e) => handleRemovePractice(e.target.dataset.moduleId, e.target.dataset.practiceId));
             });
 
-            // Add Practice Form submission
             div.querySelectorAll('.add-practice-form').forEach(form =>
             {
                 form.addEventListener('submit', (e) => handleAddPractice(e, form.dataset.moduleId));
             });
 
-            // Practice Input handling (must update state on input without full re-render)
             div.querySelectorAll('.practice-input').forEach(input =>
             {
                 input.addEventListener('input', (e) =>
                 {
                     const moduleId = e.target.dataset.moduleId;
-                    // Update state object directly to prevent full re-render while typing
                     state.newPracticeTexts = { ...state.newPracticeTexts, [moduleId]: e.target.value };
                 });
             });
@@ -771,92 +796,200 @@
             return div;
         }
 
+        // --- UPDATED renderHistoryView for Weekly Grouping ---
         function renderHistoryView()
         {
             const div = document.createElement('div');
             div.className = "space-y-6";
 
-            // UPDATED: Dark mode text color
             div.innerHTML = `
                 <h2 class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">Practice History Review</h2>
-                <p class="text-slate-600 dark:text-slate-400">Review your past **Module Completion Rate**. This respects your "Complete One" or "Complete All" rules.</p>
+                <p class="text-slate-600 dark:text-slate-400">Review your past **Module Completion Rate**. Click on a day to see details!</p>
             `;
 
             const historyContainer = document.createElement('div');
-            historyContainer.className = "space-y-3";
+            historyContainer.className = "space-y-8";
 
-            const logDates = Object.keys(state.allLogs).sort().reverse(); // Sort descending (most recent first)
+            const logDates = Object.keys(state.allLogs).sort(); // Sort ascending for weekly grouping
 
             if (logDates.length === 0)
             {
-                // UPDATED: Dark mode alert colors
                 historyContainer.innerHTML = '<p class="p-4 bg-yellow-100 dark:bg-yellow-900 rounded-xl text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700">No practice logs found yet. Start tracking your habits on the Daily Tracker!</p>';
             } else
             {
+                // Group logs by week (Sunday start)
+                const logsByWeek = {};
+                for (const dateKey of logDates)
+                {
+                    const weekStartKey = getWeekStartKey(dateKey);
+                    if (!logsByWeek[weekStartKey])
+                    {
+                        logsByWeek[weekStartKey] = [];
+                    }
+                    logsByWeek[weekStartKey].push(dateKey);
+                }
+
+                // Sort week keys (descending, most recent first)
+                const weekKeys = Object.keys(logsByWeek).sort().reverse();
 
                 const todayKey = getTodayDateKey();
                 const totalModules = state.config.length;
 
-                logDates.forEach(dateKey =>
+                weekKeys.forEach(weekStartKey =>
                 {
-                    const logEntry = state.allLogs[dateKey];
+                    const weekLogs = logsByWeek[weekStartKey].sort().reverse(); // Days within the week, descending
 
-                    // Calculate stats based on MODULE completion
-                    const completedModulesCount = state.config.filter(module =>
-                        isModuleCompleted(module, logEntry.practices)
-                    ).length;
+                    const weekDiv = document.createElement('div');
+                    weekDiv.className = "p-5 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-indigo-100 dark:border-indigo-900";
 
-                    const completionPercentage = totalModules > 0 ? Math.round((completedModulesCount / totalModules) * 100) : 0;
+                    // Week Header
+                    const weekHeader = document.createElement('h3');
+                    weekHeader.className = "text-xl font-bold text-indigo-700 dark:text-indigo-400 mb-3 pb-2 border-b border-indigo-200 dark:border-indigo-800";
+                    weekHeader.textContent = `Week of ${formatWeekRange(weekStartKey)}`;
+                    weekDiv.appendChild(weekHeader);
 
-                    const isToday = dateKey === todayKey;
+                    const dailyLogGrid = document.createElement('div');
+                    dailyLogGrid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3";
 
-                    let cardColor = 'bg-white dark:bg-gray-700';
-                    let borderColor = 'border-slate-300 dark:border-gray-600';
-                    let percentageColor = 'text-gray-600 dark:text-gray-300';
-                    let dateColor = 'text-slate-800 dark:text-slate-100';
-
-                    if (isToday)
+                    weekLogs.forEach(dateKey =>
                     {
-                        cardColor = 'bg-indigo-100 dark:bg-indigo-900';
-                        borderColor = 'border-indigo-500 dark:border-indigo-700';
-                        percentageColor = 'text-indigo-700 dark:text-indigo-400';
-                        dateColor = 'text-indigo-800 dark:text-indigo-300';
-                    } else if (completionPercentage >= 75)
-                    {
-                        cardColor = 'bg-green-100 dark:bg-green-900';
-                        borderColor = 'border-green-400 dark:border-green-700';
-                        percentageColor = 'text-green-700 dark:text-green-400';
-                    } else if (completionPercentage > 0)
-                    {
-                        cardColor = 'bg-yellow-100 dark:bg-yellow-900';
-                        borderColor = 'border-yellow-400 dark:border-yellow-700';
-                        percentageColor = 'text-yellow-700 dark:text-yellow-400';
-                    }
+                        const logEntry = state.allLogs[dateKey];
+                        const dateObj = new Date(dateKey + 'T00:00:00');
+                        const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
 
-                    const historyCard = document.createElement('div');
-                    // UPDATED: Dark mode card classes
-                    historyCard.className = `p-4 border-2 ${borderColor} ${cardColor} rounded-xl shadow-md flex justify-between items-center transition-all duration-300 hover:shadow-lg cursor-default`;
+                        const completedModulesCount = state.config.filter(module =>
+                            isModuleCompleted(module, logEntry.practices)
+                        ).length;
 
-                    // UPDATED: Dark mode text classes
-                    historyCard.innerHTML = `
-                        <div>
-                            <p class="text-lg font-bold ${dateColor}">
-                                ${dateKey} ${isToday ? ' (Today)' : ''}
-                            </p>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">${completedModulesCount} / ${totalModules} Modules Completed</p>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-3xl font-extrabold ${percentageColor}">${completionPercentage}%</span>
-                        </div>
-                    `;
+                        const completionPercentage = totalModules > 0 ? Math.round((completedModulesCount / totalModules) * 100) : 0;
 
-                    historyContainer.appendChild(historyCard);
+                        const isToday = dateKey === todayKey;
+
+                        let cardColor = 'bg-slate-50 dark:bg-gray-700';
+                        let borderColor = 'border-slate-300 dark:border-gray-600';
+                        let percentageColor = 'text-gray-600 dark:text-gray-300';
+                        let dateColor = 'text-slate-800 dark:text-slate-100';
+
+                        if (isToday)
+                        {
+                            cardColor = 'bg-indigo-50 dark:bg-indigo-900';
+                            borderColor = 'border-indigo-400 dark:border-indigo-700';
+                            percentageColor = 'text-indigo-700 dark:text-indigo-400';
+                            dateColor = 'text-indigo-800 dark:text-indigo-300';
+                        } else if (completionPercentage >= 75)
+                        {
+                            cardColor = 'bg-green-50 dark:bg-green-900/50';
+                            borderColor = 'border-green-400 dark:border-green-700';
+                            percentageColor = 'text-green-700 dark:text-green-400';
+                        } else if (completionPercentage > 0)
+                        {
+                            cardColor = 'bg-yellow-50 dark:bg-yellow-900/50';
+                            borderColor = 'border-yellow-400 dark:border-yellow-700';
+                            percentageColor = 'text-yellow-700 dark:text-yellow-400';
+                        }
+
+
+                        const historyCard = document.createElement('div');
+                        // ADDED: Click handler for detail modal
+                        historyCard.addEventListener('click', () => handleDayLogClick(dateKey));
+
+                        historyCard.className = `p-3 border-2 ${borderColor} ${cardColor} rounded-xl shadow-sm flex flex-col justify-between items-start transition-all duration-300 hover:shadow-lg hover:ring-2 hover:ring-indigo-500/50 cursor-pointer`;
+
+                        historyCard.innerHTML = `
+                            <div class="flex justify-between w-full">
+                                <p class="text-base font-bold ${dateColor}">
+                                    ${dayOfWeek}, ${dateKey.substring(5)} ${isToday ? ' (Today)' : ''}
+                                </p>
+                                <span class="text-xl font-extrabold ${percentageColor}">${completionPercentage}%</span>
+                            </div>
+                            <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">${completedModulesCount} / ${totalModules} Modules</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 italic">Click for details...</p>
+                        `;
+
+                        dailyLogGrid.appendChild(historyCard);
+                    });
+
+                    weekDiv.appendChild(dailyLogGrid);
+                    historyContainer.appendChild(weekDiv);
                 });
             }
 
             div.appendChild(historyContainer);
             return div;
         }
+
+        // --- NEW: Render Day Detail Modal ---
+        function renderDayDetailModal()
+        {
+            if (!state.selectedLogDate) return null;
+
+            const dateKey = state.selectedLogDate;
+            const logEntry = state.allLogs[dateKey];
+            const logPractices = logEntry.practices || {};
+            const dateDisplay = new Date(dateKey + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4 transition-opacity';
+            modal.addEventListener('click', (e) =>
+            {
+                if (e.target === modal) handleCloseModal();
+            });
+
+            const content = document.createElement('div');
+            content.className = 'bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-transform p-6';
+
+            content.innerHTML = `
+                <div class="flex justify-between items-center pb-4 border-b border-indigo-200 dark:border-indigo-700">
+                    <h3 class="text-2xl font-bold text-indigo-700 dark:text-indigo-300">Log Details: ${dateDisplay}</h3>
+                    <button id="modal-close-btn" class="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div id="module-details" class="mt-4 space-y-4"></div>
+            `;
+
+            content.querySelector('#modal-close-btn').addEventListener('click', handleCloseModal);
+
+            const detailsContainer = content.querySelector('#module-details');
+
+            state.config.forEach(module =>
+            {
+                const isCompleted = isModuleCompleted(module, logPractices);
+                const completedPractices = module.practices.filter(p => logPractices[`${module.id}_${p.id}`] === 'completed');
+
+                const moduleDetail = document.createElement('div');
+                moduleDetail.className = 'p-3 rounded-lg border-l-4 ' + (isCompleted
+                    ? 'bg-green-50 dark:bg-green-900 border-green-500'
+                    : 'bg-yellow-50 dark:bg-yellow-900 border-yellow-500');
+
+                moduleDetail.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-lg font-semibold ${isCompleted ? 'text-green-800 dark:text-green-300' : 'text-yellow-800 dark:text-yellow-300'}">
+                            ${module.icon} ${module.name}
+                        </h4>
+                        <span class="text-sm font-bold ${isCompleted ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}">
+                            ${isCompleted ? 'MODULE COMPLETE' : 'INCOMPLETE'}
+                        </span>
+                    </div>
+                    <p class="text-xs mt-1 italic text-gray-600 dark:text-gray-400">Rule: ${module.completionRule === 'all' ? 'Complete ALL practices' : 'Complete ONE practice'}</p>
+                    <div class="mt-2 pl-4 border-l border-gray-300 dark:border-gray-600">
+                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Completed Practices (${completedPractices.length} / ${module.practices.length}):</p>
+                        <ul class="list-disc list-inside mt-1 text-sm space-y-0.5 text-gray-600 dark:text-gray-400">
+                            ${completedPractices.length > 0
+                        ? completedPractices.map(p => `<li class="ml-1">${p.name}</li>`).join('')
+                        : '<li>None completed.</li>'
+                    }
+                        </ul>
+                    </div>
+                `;
+                detailsContainer.appendChild(moduleDetail);
+            });
+
+            modal.appendChild(content);
+            return modal;
+        }
+
 
         function renderApp()
         {
@@ -891,6 +1024,13 @@
                 main.appendChild(renderHistoryView());
             }
             appContainer.appendChild(main);
+
+            // Render Modal (last so it sits on top)
+            const modal = renderDayDetailModal();
+            if (modal)
+            {
+                appContainer.appendChild(modal);
+            }
         }
 
         // Start the application initialization
