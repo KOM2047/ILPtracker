@@ -28,12 +28,10 @@
 
 <body class="bg-slate-50 min-h-screen">
     <div id="app" class="max-w-6xl mx-auto p-4 sm:p-8">
-        </div>
+    </div>
 
     <script type="module">
-        // **CORRECTION:** Changed relative paths to absolute CDN URLs for Firebase imports
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
 
         // --- Global Variables (Provided by Canvas Environment) ---
         let auth = null;
@@ -52,12 +50,10 @@
             darkMode: false,
             selectedLogDate: null,
             // NEW: Temporary state for day selection in config view
-            tempFrequencyDays: {} 
+            tempFrequencyDays: {}
         };
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ilp-default-app';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? JSON.parse(__initial_auth_token) : null;
+
 
         const getTodayDateKey = () => new Date().toISOString().split('T')[0];
 
@@ -71,7 +67,7 @@
             { id: 'spirit', name: 'Spirit', icon: '笨ｨ', frequency: { rule: 'all', days: [] }, practices: ['Meditation', 'Contemplation'] },
             { id: 'shadow', name: 'Shadow', icon: '倦', frequency: { rule: 'all', days: [] }, practices: ['Inquiry', 'Therapy'] },
         ];
-        
+
         const WEEK_DAYS = [
             { key: 'mon', name: 'Monday' },
             { key: 'tue', name: 'Tuesday' },
@@ -193,7 +189,7 @@
                 return module.practices.every(isPracticeCompleted);
             }
         }
-        
+
         /**
          * Determines if a module is completed based on its practices AND scheduling for today.
          * @param {Object} module 
@@ -201,8 +197,7 @@
          * @param {string} dateKey - Date key for which the log applies (used for scheduling check)
          * @returns {boolean|'N/A'} - true/false or 'N/A' if not scheduled
          */
-        function isModuleCompleted(module, dailyLog, dateKey = null)
-        {
+        function isModuleCompleted(module, dailyLog, dateKey = null) {
             if (!isModuleScheduledToday(module, dateKey)) {
                 return 'N/A';
             }
@@ -212,8 +207,7 @@
         // --- State Management and Renderer ---
 
         // Central function to update state and trigger a re-render
-        function setState(updates)
-        {
+        function setState(updates) {
             // Shallow merge updates into the global state
             Object.assign(state, updates);
             renderApp();
@@ -221,50 +215,13 @@
 
         // --- Auth/Listeners (Simplified for Local Storage) ---
 
-        async function initApp()
-        {
+        async function initApp() {
             loadDarkModePreference();
-
-            try
-            {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-
-                onAuthStateChanged(auth, async (user) =>
-                {
-                    if (user)
-                    {
-                        userId = user.uid;
-                        setState({ loading: false });
-                        loadConfig();
-                        loadDailyLog();
-                    } else
-                    {
-                        try
-                        {
-                            if (initialAuthToken)
-                            {
-                                await signInWithCustomToken(auth, initialAuthToken);
-                            } else
-                            {
-                                await signInAnonymously(auth);
-                            }
-                        } catch (e)
-                        {
-                            console.error('Auth error during sign-in attempt. Using fallback ID.', e);
-                            userId = 'local-user-session';
-                        }
-                    }
-                });
-
-            } catch (e)
-            {
-                console.error("Initialization failed. Using local fallback.", e);
-                userId = 'local-user-session';
-                setState({ loading: false });
-                loadConfig();
-                loadDailyLog();
-            }
+            // Local-only initialization
+            userId = 'local-user-session';
+            setState({ loading: false });
+            loadConfig();
+            loadDailyLog();
         }
 
         function getLocalConfigKey() { return `ilp_config_${userId}`; }
@@ -272,15 +229,12 @@
 
         // --- Data Loaders (Local Storage Readers) ---
 
-        function loadConfig()
-        {
+        function loadConfig() {
             const configKey = getLocalConfigKey();
             const storedConfig = localStorage.getItem(configKey);
 
-            if (storedConfig)
-            {
-                try
-                {
+            if (storedConfig) {
+                try {
                     const parsedConfig = JSON.parse(storedConfig).modules;
                     // MIGRATION/Normalization: ensure all modules have the new frequency object
                     const normalizedConfig = parsedConfig.map(m => ({
@@ -288,19 +242,16 @@
                         frequency: m.frequency || { rule: m.completionRule || 'all', days: [] }
                     }));
                     setState({ config: normalizedConfig });
-                } catch (e)
-                {
+                } catch (e) {
                     console.error("Error parsing stored config:", e);
                     initializeDefaultConfig();
                 }
-            } else if (state.config.length === 0)
-            {
+            } else if (state.config.length === 0) {
                 initializeDefaultConfig();
             }
         }
 
-        function initializeDefaultConfig()
-        {
+        function initializeDefaultConfig() {
             // Initialize with default modules if no config exists
             const initialConfig = CORE_MODULES.map(m => ({
                 ...m,
@@ -312,20 +263,16 @@
         }
 
 
-        function loadDailyLog()
-        {
+        function loadDailyLog() {
             const todayKey = getTodayDateKey();
             const logKey = getLocalAllLogsKey();
             const storedLogs = localStorage.getItem(logKey);
 
             let allLogs = {};
-            if (storedLogs)
-            {
-                try
-                {
+            if (storedLogs) {
+                try {
                     allLogs = JSON.parse(storedLogs).logs || {};
-                } catch (e)
-                {
+                } catch (e) {
                     console.error("Error parsing stored logs:", e);
                 }
             }
@@ -340,23 +287,19 @@
 
         // --- Data Handlers (Local Storage Writers) ---
 
-        function saveConfig(newConfig)
-        {
+        function saveConfig(newConfig) {
             if (!userId) return;
             const configKey = getLocalConfigKey();
 
-            try
-            {
+            try {
                 localStorage.setItem(configKey, JSON.stringify({ modules: newConfig, updatedAt: new Date().toISOString() }));
-            } catch (e)
-            {
+            } catch (e) {
                 console.error("Error saving config to localStorage:", e);
                 setState({ error: "Failed to save configuration locally." });
             }
         }
 
-        function togglePractice(moduleId, practiceId, isChecked)
-        {
+        function togglePractice(moduleId, practiceId, isChecked) {
             if (!userId) return;
             const todayKey = getTodayDateKey();
             const logKey = getLocalAllLogsKey();
@@ -377,8 +320,7 @@
                 }
             };
 
-            try
-            {
+            try {
                 setState({
                     dailyLog: newDailyLog,
                     allLogs: updatedAllLogs
@@ -388,8 +330,7 @@
                     logs: updatedAllLogs,
                     updatedAt: new Date().toISOString()
                 }));
-            } catch (e)
-            {
+            } catch (e) {
                 console.error("Error updating daily log in localStorage:", e);
                 setState({ error: "Failed to update habit tracker locally." });
             }
@@ -397,12 +338,9 @@
 
         // --- Config UI Handlers (UPDATED) ---
 
-        function handleUpdateModuleFrequencyRule(moduleId, rule)
-        {
-            const newConfig = state.config.map(module =>
-            {
-                if (module.id === moduleId)
-                {
+        function handleUpdateModuleFrequencyRule(moduleId, rule) {
+            const newConfig = state.config.map(module => {
+                if (module.id === moduleId) {
                     // Preserve days if switching back and forth from specific_days
                     const days = (module.frequency.days || []).slice();
                     return { ...module, frequency: { rule: rule, days: days } };
@@ -412,12 +350,10 @@
             setState({ config: newConfig });
             saveConfig(newConfig);
         }
-        
+
         function handleUpdateModuleFrequencyDays(moduleId, dayKey, isChecked) {
-            const newConfig = state.config.map(module =>
-            {
-                if (module.id === moduleId)
-                {
+            const newConfig = state.config.map(module => {
+                if (module.id === moduleId) {
                     let newDays = (module.frequency.days || []).slice();
                     if (isChecked && !newDays.includes(dayKey)) {
                         newDays.push(dayKey);
@@ -436,8 +372,7 @@
             saveConfig(newConfig);
         }
 
-        function handleAddModule(e)
-        {
+        function handleAddModule(e) {
             e.preventDefault();
             const moduleName = state.newModuleName.trim();
             if (!moduleName) return;
@@ -457,17 +392,14 @@
             saveConfig(newConfig);
         }
 
-        function handleAddPractice(e, moduleId)
-        {
+        function handleAddPractice(e, moduleId) {
             e.preventDefault();
             const practiceText = state.newPracticeTexts[moduleId] || '';
 
             if (!practiceText.trim()) return;
 
-            const newConfig = state.config.map(module =>
-            {
-                if (module.id === moduleId)
-                {
+            const newConfig = state.config.map(module => {
+                if (module.id === moduleId) {
                     const newPractice = {
                         id: practiceText.trim().toLowerCase().replace(/\s/g, '_') + Date.now(),
                         name: practiceText.trim(),
@@ -486,12 +418,9 @@
             saveConfig(newConfig);
         }
 
-        function handleRemovePractice(moduleId, practiceId)
-        {
-            const newConfig = state.config.map(module =>
-            {
-                if (module.id === moduleId)
-                {
+        function handleRemovePractice(moduleId, practiceId) {
+            const newConfig = state.config.map(module => {
+                if (module.id === moduleId) {
                     return {
                         ...module,
                         practices: module.practices.filter(p => p.id !== practiceId)
@@ -503,13 +432,12 @@
             saveConfig(newConfig);
         }
 
-        function handleRemoveModule(moduleId)
-        {
+        function handleRemoveModule(moduleId) {
             const newConfig = state.config.filter(m => m.id !== moduleId);
             setState({ config: newConfig });
             saveConfig(newConfig);
         }
-        
+
         function handleDayLogClick(dateKey) {
             setState({ selectedLogDate: dateKey });
         }
@@ -518,12 +446,81 @@
             setState({ selectedLogDate: null });
         }
 
+        // --- Export Feature ---
+
+        function downloadTxtFile(filename, text) {
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+
+        function generateWeekTxt(weekStartKey) {
+            const range = formatWeekRange(weekStartKey);
+            let content = `INTEGRAL LIFE PRACTICE LOG\nWeek: ${range}\nGenerated: ${new Date().toLocaleString()}\n\n`;
+            content += `========================================\n\n`;
+
+            // Get all days in this week (Sun-Sat)
+            const startDate = new Date(weekStartKey + 'T00:00:00');
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(startDate);
+                d.setDate(startDate.getDate() + i);
+                const dateKey = d.toISOString().split('T')[0];
+                const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+
+                content += `--- ${dayName}, ${dateKey} ---\n`;
+
+                const logEntry = state.allLogs[dateKey];
+                const practices = logEntry ? logEntry.practices : {};
+
+                let scheduledCount = 0;
+                let completedCount = 0;
+
+                state.config.forEach(module => {
+                    const status = isModuleCompleted(module, practices, dateKey);
+
+                    if (status !== 'N/A') {
+                        scheduledCount++;
+                        const isDone = status === true;
+                        if (isDone) completedCount++;
+
+                        content += `[${isDone ? 'X' : ' '}] ${module.name} (${module.icon})\n`;
+
+                        // List individual practices
+                        if (module.practices.length > 0) {
+                            module.practices.forEach(p => {
+                                const pDone = practices[`${module.id}_${p.id}`] === 'completed';
+                                content += `    - [${pDone ? 'x' : ' '}] ${p.name}\n`;
+                            });
+                        }
+                        content += `\n`;
+                    }
+                });
+
+                if (scheduledCount === 0) {
+                    content += `(Rest Day / No Modules Scheduled)\n\n`;
+                } else {
+                    content += `Summary: ${completedCount}/${scheduledCount} Modules Completed\n\n`;
+                }
+            }
+
+            return content;
+        }
+
+        function handleExportWeek(weekStartKey) {
+            const content = generateWeekTxt(weekStartKey);
+            const filename = `ILP_Log_${weekStartKey}.txt`;
+            downloadTxtFile(filename, content);
+        }
+
 
         // --- DOM Creation Utilities and Rendering ---
 
         // (renderLoadingState, renderErrorState, renderHeader are omitted for brevity, assumed unchanged)
-        function renderLoadingState()
-        {
+        function renderLoadingState() {
             const div = document.createElement('div');
             div.className = "fixed inset-0 flex flex-col items-center justify-center bg-slate-50 dark:bg-gray-800 z-50";
             div.innerHTML = `
@@ -536,8 +533,7 @@
             return div;
         }
 
-        function renderErrorState()
-        {
+        function renderErrorState() {
             const div = document.createElement('div');
             div.className = "p-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg shadow-md mt-4";
             div.innerHTML = `
@@ -552,8 +548,7 @@
             return div;
         }
 
-        function renderHeader()
-        {
+        function renderHeader() {
             const header = document.createElement('header');
             header.className = "flex flex-col sm:flex-row justify-between items-center py-4 mb-8 border-b-2 border-indigo-100 dark:border-indigo-900";
 
@@ -571,15 +566,13 @@
             const navDiv = document.createElement('div');
             navDiv.className = "flex space-x-3";
 
-            const createButton = (text, targetView) =>
-            {
+            const createButton = (text, targetView) => {
                 const btn = document.createElement('button');
                 btn.textContent = text;
-                btn.className = `px-4 py-2 rounded-full font-semibold transition-all duration-200 ${
-                    state.view === targetView
+                btn.className = `px-4 py-2 rounded-full font-semibold transition-all duration-200 ${state.view === targetView
                         ? 'bg-indigo-600 text-white shadow-lg'
                         : 'bg-white text-indigo-600 border border-indigo-300 dark:bg-gray-700 dark:text-indigo-400 dark:border-indigo-900 hover:bg-indigo-50 dark:hover:bg-gray-600'
-                }`;
+                    }`;
                 btn.addEventListener('click', () => setState({ view: targetView }));
                 return btn;
             };
@@ -611,8 +604,7 @@
         }
 
         // --- Render Tracker View (UPDATED) ---
-        function renderTrackerView()
-        {
+        function renderTrackerView() {
             const div = document.createElement('div');
             div.className = "space-y-6";
 
@@ -622,8 +614,7 @@
             grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
             let modulesShown = 0;
 
-            state.config.forEach(module =>
-            {
+            state.config.forEach(module => {
                 if (isModuleScheduledToday(module)) {
                     grid.appendChild(createPracticeCard(module));
                     modulesShown++;
@@ -631,7 +622,7 @@
             });
 
             if (modulesShown === 0) {
-                 grid.innerHTML = `<p class="p-4 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 col-span-full">
+                grid.innerHTML = `<p class="p-4 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 col-span-full">
                     No modules are scheduled for today (${new Date().toLocaleDateString('en-US', { weekday: 'long' })}). Enjoy your rest day!
                 </p>`;
             }
@@ -640,18 +631,16 @@
             return div;
         }
 
-        function createPracticeCard(module)
-        {
+        function createPracticeCard(module) {
             // Note: isModuleCompleted will return true/false here because we only call it if scheduled
-            const moduleCompleted = checkModulePracticesCompleted(module, state.dailyLog); 
+            const moduleCompleted = checkModulePracticesCompleted(module, state.dailyLog);
             const isChooseOne = module.frequency.rule === 'choose_one';
 
             const card = document.createElement('div');
-            card.className = `p-4 border-2 rounded-xl shadow-lg transition-all duration-300 ${
-                moduleCompleted
+            card.className = `p-4 border-2 rounded-xl shadow-lg transition-all duration-300 ${moduleCompleted
                     ? 'bg-green-50 border-green-300 dark:bg-green-900 dark:border-green-700'
                     : 'bg-white border-slate-200 hover:shadow-xl dark:bg-gray-700 dark:border-gray-600 dark:hover:shadow-2xl'
-            }`;
+                }`;
 
             const completionText = isChooseOne
                 ? 'Complete ONE practice below to satisfy this module.'
@@ -663,11 +652,10 @@
                 <div class="flex items-center justify-between mb-3 border-b pb-2 border-indigo-100 dark:border-indigo-800">
                     <div class="flex items-center">
                         <span class="text-2xl mr-2">${module.icon}</span>
-                        <h3 class="text-xl font-semibold ${
-                            moduleCompleted
-                                ? 'text-green-700 dark:text-green-300'
-                                : 'text-indigo-700 dark:text-indigo-300'
-                        }">${module.name}</h3>
+                        <h3 class="text-xl font-semibold ${moduleCompleted
+                    ? 'text-green-700 dark:text-green-300'
+                    : 'text-indigo-700 dark:text-indigo-300'
+                }">${module.name}</h3>
                     </div>
                     <p class="text-xs font-medium ${completionStyle}">${moduleCompleted ? 'COMPLETED' : 'IN PROGRESS'}</p>
                 </div>
@@ -677,16 +665,14 @@
 
             const ul = card.querySelector(`#practices-list-${module.id}`);
 
-            module.practices.forEach(practice =>
-            {
+            module.practices.forEach(practice => {
                 const isCompleted = state.dailyLog[`${module.id}_${practice.id}`] === 'completed';
 
                 const li = document.createElement('li');
-                li.className = `flex items-center p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
-                    isCompleted
+                li.className = `flex items-center p-2 rounded-lg cursor-pointer transition-colors duration-200 ${isCompleted
                         ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                         : 'hover:bg-indigo-50 bg-slate-50 dark:bg-gray-600 dark:hover:bg-gray-500'
-                }`;
+                    }`;
                 li.addEventListener('click', () => togglePractice(module.id, practice.id, !isCompleted));
 
                 li.innerHTML = `
@@ -694,16 +680,14 @@
                         type="checkbox"
                         ${isCompleted ? 'checked' : ''}
                         readonly
-                        class="form-checkbox h-5 w-5 rounded transition duration-150 ease-in-out ${
-                            isCompleted
-                                ? 'text-green-600 border-green-500 bg-green-200 focus:ring-green-500'
-                                : 'text-indigo-600 border-gray-300 dark:border-gray-500 focus:ring-indigo-500'
-                        }"
+                        class="form-checkbox h-5 w-5 rounded transition duration-150 ease-in-out ${isCompleted
+                        ? 'text-green-600 border-green-500 bg-green-200 focus:ring-green-500'
+                        : 'text-indigo-600 border-gray-300 dark:border-gray-500 focus:ring-indigo-500'
+                    }"
                     />
-                    <span class="ml-3 text-sm font-medium ${
-                        isCompleted
-                            ? 'line-through opacity-70'
-                            : 'text-gray-800 dark:text-gray-200'
+                    <span class="ml-3 text-sm font-medium ${isCompleted
+                        ? 'line-through opacity-70'
+                        : 'text-gray-800 dark:text-gray-200'
                     }">
                         ${practice.name}
                     </span>
@@ -715,8 +699,7 @@
         }
 
         // --- Render Config View (UPDATED) ---
-        function renderConfigView()
-        {
+        function renderConfigView() {
             const div = document.createElement('div');
             div.className = "space-y-8";
 
@@ -746,22 +729,20 @@
             const form = div.querySelector('#add-module-form');
             form.addEventListener('submit', handleAddModule);
             const input = div.querySelector('#new-module-name');
-            input.addEventListener('input', (e) =>
-            {
+            input.addEventListener('input', (e) => {
                 state.newModuleName = e.target.value;
             });
 
 
             const moduleListContainer = div.querySelector('#module-list');
 
-            state.config.forEach(module =>
-            {
+            state.config.forEach(module => {
                 const moduleDiv = document.createElement('div');
                 moduleDiv.className = "bg-white dark:bg-gray-700 p-5 rounded-xl shadow-lg border border-slate-200 dark:border-gray-600";
 
                 const currentRule = module.frequency.rule;
                 const currentDays = module.frequency.days || [];
-                
+
                 // Build the Day Selection interface if the rule is 'specific_days'
                 const daySelectionHtml = currentRule === 'specific_days' ? `
                     <div class="mt-3 space-y-2">
@@ -846,43 +827,34 @@
             // Setup event listeners for the dynamically created elements
 
             // Rule Selector
-            div.querySelectorAll('.module-rule-selector').forEach(select =>
-            {
-                select.addEventListener('change', (e) =>
-                {
+            div.querySelectorAll('.module-rule-selector').forEach(select => {
+                select.addEventListener('change', (e) => {
                     handleUpdateModuleFrequencyRule(e.target.dataset.moduleId, e.target.value);
                 });
             });
 
             // Day Selector Checkboxes
-            div.querySelectorAll('.day-selector').forEach(checkbox =>
-            {
-                checkbox.addEventListener('change', (e) =>
-                {
+            div.querySelectorAll('.day-selector').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
                     handleUpdateModuleFrequencyDays(e.target.dataset.moduleId, e.target.dataset.dayKey, e.target.checked);
                 });
             });
 
             // Remove Module, Remove Practice, Add Practice Form, Practice Input handlers (unchanged)
-            div.querySelectorAll('.remove-module-btn').forEach(btn =>
-            {
+            div.querySelectorAll('.remove-module-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => handleRemoveModule(e.target.dataset.moduleId));
             });
             // ... (other handlers)
-            div.querySelectorAll('.remove-practice-btn').forEach(btn =>
-            {
+            div.querySelectorAll('.remove-practice-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => handleRemovePractice(e.target.dataset.moduleId, e.target.dataset.practiceId));
             });
 
-            div.querySelectorAll('.add-practice-form').forEach(form =>
-            {
+            div.querySelectorAll('.add-practice-form').forEach(form => {
                 form.addEventListener('submit', (e) => handleAddPractice(e, form.dataset.moduleId));
             });
 
-            div.querySelectorAll('.practice-input').forEach(input =>
-            {
-                input.addEventListener('input', (e) =>
-                {
+            div.querySelectorAll('.practice-input').forEach(input => {
+                input.addEventListener('input', (e) => {
                     const moduleId = e.target.dataset.moduleId;
                     state.newPracticeTexts = { ...state.newPracticeTexts, [moduleId]: e.target.value };
                 });
@@ -892,8 +864,7 @@
         }
 
         // --- Render History View (UPDATED for 'N/A' status) ---
-        function renderHistoryView()
-        {
+        function renderHistoryView() {
             const div = document.createElement('div');
             div.className = "space-y-6";
 
@@ -907,11 +878,9 @@
 
             const logDates = Object.keys(state.allLogs).sort(); // Sort ascending for weekly grouping
 
-            if (logDates.length === 0)
-            {
+            if (logDates.length === 0) {
                 historyContainer.innerHTML = '<p class="p-4 bg-yellow-100 dark:bg-yellow-900 rounded-xl text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700">No practice logs found yet. Start tracking your habits on the Daily Tracker!</p>';
-            } else
-            {
+            } else {
                 // Group logs by week (Sunday start)
                 const logsByWeek = {};
                 for (const dateKey of logDates) {
@@ -931,16 +900,28 @@
                     const weekDiv = document.createElement('div');
                     weekDiv.className = "p-5 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-indigo-100 dark:border-indigo-900";
 
-                    const weekHeader = document.createElement('h3');
-                    weekHeader.className = "text-xl font-bold text-indigo-700 dark:text-indigo-400 mb-3 pb-2 border-b border-indigo-200 dark:border-indigo-800";
-                    weekHeader.textContent = `Week of ${formatWeekRange(weekStartKey)}`;
+                    const weekHeader = document.createElement('div');
+                    weekHeader.className = "flex justify-between items-center mb-3 pb-2 border-b border-indigo-200 dark:border-indigo-800";
+
+                    const title = document.createElement('h3');
+                    title.className = "text-xl font-bold text-indigo-700 dark:text-indigo-400";
+                    title.textContent = `Week of ${formatWeekRange(weekStartKey)}`;
+
+                    const exportBtn = document.createElement('button');
+                    exportBtn.textContent = "Export TXT";
+                    exportBtn.className = "text-sm bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-indigo-300 dark:hover:bg-gray-600 transition-colors";
+                    exportBtn.addEventListener('click', () => handleExportWeek(weekStartKey));
+
+                    weekHeader.appendChild(title);
+                    weekHeader.appendChild(exportBtn);
+
                     weekDiv.appendChild(weekHeader);
 
                     const dailyLogGrid = document.createElement('div');
                     dailyLogGrid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3";
-                    
+
                     // Display days in order, descending
-                    const weekLogs = logsByWeek[weekStartKey].sort().reverse(); 
+                    const weekLogs = logsByWeek[weekStartKey].sort().reverse();
 
                     weekLogs.forEach(dateKey => {
                         const logEntry = state.allLogs[dateKey];
@@ -949,7 +930,7 @@
 
                         let completedModulesCount = 0;
                         let scheduledModulesCount = 0;
-                        
+
                         // Calculate stats based on the new isModuleCompleted logic
                         state.config.forEach(module => {
                             const status = isModuleCompleted(module, logEntry.practices, dateKey);
@@ -967,11 +948,10 @@
                         const isToday = dateKey === todayKey;
 
                         const dayCard = document.createElement('div');
-                        dayCard.className = `p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                            isToday
+                        dayCard.className = `p-3 rounded-lg border cursor-pointer transition-all duration-200 ${isToday
                                 ? 'bg-indigo-50 border-indigo-300 dark:bg-indigo-900/30 dark:border-indigo-700 ring-2 ring-indigo-400'
                                 : 'bg-slate-50 border-slate-200 hover:bg-white hover:shadow-md dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600'
-                        }`;
+                            }`;
                         dayCard.addEventListener('click', () => handleDayLogClick(dateKey));
 
                         dayCard.innerHTML = `
@@ -996,7 +976,7 @@
             }
 
             div.appendChild(historyContainer);
-            
+
             // Modal for Log Details
             if (state.selectedLogDate) {
                 const modal = createLogDetailsModal(state.selectedLogDate);
@@ -1005,20 +985,20 @@
 
             return div;
         }
-        
-        function createLogDetailsModal(dateKey) {
-             const logEntry = state.allLogs[dateKey] || { practices: {} };
-             
-             const div = document.createElement('div');
-             div.className = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm";
-             div.addEventListener('click', (e) => {
-                 if(e.target === div) handleCloseModal();
-             });
 
-             const content = document.createElement('div');
-             content.className = "bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col";
-             
-             content.innerHTML = `
+        function createLogDetailsModal(dateKey) {
+            const logEntry = state.allLogs[dateKey] || { practices: {} };
+
+            const div = document.createElement('div');
+            div.className = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm";
+            div.addEventListener('click', (e) => {
+                if (e.target === div) handleCloseModal();
+            });
+
+            const content = document.createElement('div');
+            content.className = "bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col";
+
+            content.innerHTML = `
                 <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800 z-10">
                     <div>
                         <h3 class="text-2xl font-bold text-gray-800 dark:text-white">Log Details</h3>
@@ -1031,28 +1011,28 @@
                 <div class="p-6 space-y-6">
              `;
 
-             const practicesContainer = document.createElement('div');
-             practicesContainer.className = "space-y-4";
-             
-             // Reuse rendering logic basically but readonly
-             state.config.forEach(module => {
-                 const status = isModuleCompleted(module, logEntry.practices, dateKey);
-                 if (status === 'N/A') return; // Skip if not scheduled
-                 
-                 const completed = status === true;
-                 
-                  const moduleDiv = document.createElement('div');
-                  moduleDiv.className = "border rounded-lg p-4 " + (completed ? "border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800" : "border-gray-200 dark:border-gray-700");
-                  
-                  moduleDiv.innerHTML = `
+            const practicesContainer = document.createElement('div');
+            practicesContainer.className = "space-y-4";
+
+            // Reuse rendering logic basically but readonly
+            state.config.forEach(module => {
+                const status = isModuleCompleted(module, logEntry.practices, dateKey);
+                if (status === 'N/A') return; // Skip if not scheduled
+
+                const completed = status === true;
+
+                const moduleDiv = document.createElement('div');
+                moduleDiv.className = "border rounded-lg p-4 " + (completed ? "border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800" : "border-gray-200 dark:border-gray-700");
+
+                moduleDiv.innerHTML = `
                     <div class="flex items-center gap-3 mb-2">
                         <div class="text-2xl">${module.icon}</div>
                         <h4 class="font-bold ${completed ? "text-green-700 dark:text-green-400" : "text-gray-700 dark:text-gray-300"}">${module.name}</h4>
                     </div>
                     <ul class="space-y-1 ml-9">
                         ${module.practices.map(p => {
-                            const pDone = logEntry.practices[`${module.id}_${p.id}`] === 'completed';
-                             return `
+                    const pDone = logEntry.practices[`${module.id}_${p.id}`] === 'completed';
+                    return `
                                 <li class="text-sm flex items-center gap-2 ${pDone ? "text-green-700 dark:text-green-400 font-medium" : "text-gray-500 dark:text-gray-400"}">
                                     <span class="w-4 h-4 flex items-center justify-center border rounded ${pDone ? "bg-green-500 border-green-500 text-white" : "border-gray-300"}">
                                         ${pDone ? "✓" : ""}
@@ -1060,41 +1040,38 @@
                                     ${p.name}
                                 </li>
                              `
-                        }).join('')}
+                }).join('')}
                     </ul>
                   `;
-                  practicesContainer.appendChild(moduleDiv);
-             });
-             
-             if (practicesContainer.innerHTML === "") {
-                 practicesContainer.innerHTML = "<p class='text-gray-500 italic text-center'>No modules were scheduled for this day.</p>";
-             }
+                practicesContainer.appendChild(moduleDiv);
+            });
 
-             content.lastElementChild.appendChild(practicesContainer); // Add to p-6 div
-             content.innerHTML += `</div>`; // Close p-6 div
+            if (practicesContainer.innerHTML === "") {
+                practicesContainer.innerHTML = "<p class='text-gray-500 italic text-center'>No modules were scheduled for this day.</p>";
+            }
 
-             const closeBtn = content.querySelector('#close-modal-btn');
-             closeBtn.addEventListener('click', handleCloseModal);
+            content.lastElementChild.appendChild(practicesContainer); // Add to p-6 div
+            content.innerHTML += `</div>`; // Close p-6 div
 
-             div.appendChild(content);
-             return div;
+            const closeBtn = content.querySelector('#close-modal-btn');
+            closeBtn.addEventListener('click', handleCloseModal);
+
+            div.appendChild(content);
+            return div;
         }
 
         // --- Main Render Function ---
 
-        function renderApp()
-        {
+        function renderApp() {
             const app = document.getElementById('app');
             app.innerHTML = '';
 
-            if (state.loading)
-            {
+            if (state.loading) {
                 app.appendChild(renderLoadingState());
                 return;
             }
 
-            if (state.error)
-            {
+            if (state.error) {
                 app.appendChild(renderHeader());
                 app.appendChild(renderErrorState());
                 return;
@@ -1102,14 +1079,11 @@
 
             app.appendChild(renderHeader());
 
-            if (state.view === 'tracker')
-            {
+            if (state.view === 'tracker') {
                 app.appendChild(renderTrackerView());
-            } else if (state.view === 'config')
-            {
+            } else if (state.view === 'config') {
                 app.appendChild(renderConfigView());
-            } else if (state.view === 'history')
-            {
+            } else if (state.view === 'history') {
                 app.appendChild(renderHistoryView());
             }
         }
@@ -1120,4 +1094,5 @@
 
     </script>
 </body>
+
 </html>
