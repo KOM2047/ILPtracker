@@ -1,0 +1,211 @@
+/* --- Integral Design System (AQAL Theme) --- */
+        :root {
+            /* Core Palette: "Second Tier" Teal */
+            --integral-teal-dark: #0f3c4c;
+            /* Deep Kosmic Blue/Teal */
+            --integral-teal-mid: #1d6e7e;
+            /* Evolutionary Teal */
+            --integral-teal-light: #56cbf9;
+            /* Turquoise/Cyan Accent */
+
+            /* Module Colors (The 4 Quadrants) */
+            --mod-body: #e76f51;
+            /* Physical/Behavioral (Orange/Red) */
+            --mod-mind: #2a9d8f;
+            /* Intellectual (Teal/Green) */
+            --mod-spirit: #a594f9;
+            /* Transpersonal (Violet/Gold) */
+            --mod-shadow: #10b981;
+            /* Emerald (Growth/Healing) */
+
+            /* Neutral / Glass */
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        [data-bs-theme="dark"] {
+            --integral-teal-dark: #051923;
+            --integral-teal-mid: #003554;
+            --integral-teal-light: #00a6fb;
+
+            --glass-bg: rgba(15, 23, 42, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--integral-teal-light) 0%, var(--integral-teal-mid) 100%);
+            background-attachment: fixed;
+            /* Parallax feel */
+            color: #1e293b;
+            min-height: 100vh;
+        }
+
+        [data-bs-theme="dark"] body {
+            background: linear-gradient(135deg, var(--integral-teal-dark) 0%, var(--integral-teal-mid) 100%);
+            color: #f1f5f9;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+            /* Organic roundness */
+            box-shadow: var(--glass-shadow);
+        }
+
+        .glass-header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        [data-bs-theme="dark"] .glass-header {
+            background: rgba(15, 23, 42, 0.85);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Holon Cards (Floating, distinct) */
+        .holon-card {
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            border: none;
+            overflow: hidden;
+            background: var(--glass-bg);
+            position: relative;
+        }
+
+        .holon-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            z-index: 10;
+        }
+
+        /* Transcend and Include Effect */
+        .holon-card.integrated {
+            box-shadow: 0 0 20px rgba(var(--mod-color-rgb), 0.4), var(--glass-shadow);
+            border-color: transparent !important;
+            /* Glow replaces border */
+        }
+
+        .holon-card.integrated::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.4), transparent 70%);
+            pointer-events: none;
+        }
+
+        /* Typography Override */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            /* Tight, modern tracking */
+        }
+
+        /* Module Specificaccents */
+        .accent-body {
+            color: var(--mod-body) !important;
+            --mod-color-rgb: 231, 111, 81;
+        }
+
+        .accent-mind {
+            color: var(--mod-mind) !important;
+            --mod-color-rgb: 42, 157, 143;
+        }
+
+        .accent-spirit {
+            color: var(--mod-spirit) !important;
+            --mod-color-rgb: 165, 148, 249;
+        }
+
+        .accent-shadow {
+            color: var(--mod-shadow) !important;
+            --mod-color-rgb: 16, 185, 129;
+        }
+
+        .border-body {
+            border-color: var(--mod-body) !important;
+        }
+
+        .border-mind {
+            border-color: var(--mod-mind) !important;
+        }
+
+        .border-spirit {
+            border-color: var(--mod-spirit) !important;
+        }
+
+        .border-shadow {
+            border-color: var(--mod-shadow) !important;
+        }
+
+        .bg-gradient-body {
+            background: linear-gradient(135deg, var(--mod-body), #f4a261);
+            color: white;
+        }
+
+        .bg-gradient-mind {
+            background: linear-gradient(135deg, var(--mod-mind), #264653);
+            color: white;
+        }
+
+        .bg-gradient-spirit {
+            background: linear-gradient(135deg, var(--mod-spirit), #7b2cbf);
+            color: white;
+        }
+
+        .bg-gradient-shadow {
+            background: linear-gradient(135deg, var(--mod-shadow), #34d399);
+            color: white;
+        }
+
+        /* Mandala Progress Ring */
+        .mandala-ring {
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .mandala-circle-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 8;
+        }
+
+        [data-bs-theme="light"] .mandala-circle-bg {
+            stroke: rgba(0, 0, 0, 0.05);
+        }
+
+        .mandala-circle-progress {
+            fill: none;
+            stroke: url(#cosmosGradient);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 251;
+            /* 2 * PI * r (r=40) => ~251 */
+            stroke-dashoffset: 251;
+            transition: stroke-dashoffset 1s ease-in-out;
+        }
+
+
+        /* Custom Scrollbar for inner lists */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        [data-bs-theme="dark"] ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+        }
