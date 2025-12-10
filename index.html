@@ -5,30 +5,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Integral Life Practice Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <meta name="theme-color" content="#4f46e5">
     <style>
         /* Custom styles for consistency and aesthetics */
         body {
             font-family: 'Inter', sans-serif;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
         }
 
-        .form-checkbox {
-            min-width: 1.25rem;
-            min-height: 1.25rem;
+        .cursor-pointer {
+            cursor: pointer;
         }
 
-        /* Dark Mode: Ensure the body background is consistent */
-        html[data-mode="dark"] body {
-            background-color: #1f2937;
+        .card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--bs-box-shadow-lg) !important;
         }
     </style>
 </head>
 
-<body class="bg-slate-50 min-h-screen">
-    <div id="app" class="max-w-6xl mx-auto p-4 sm:p-8">
+<body class="min-vh-100">
+    <div id="app" class="container py-4">
     </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script type="module">
 
@@ -95,11 +107,9 @@
         function applyDarkMode(isDark) {
             const htmlEl = document.documentElement;
             if (isDark) {
-                htmlEl.classList.add('dark');
-                htmlEl.setAttribute('data-mode', 'dark');
+                htmlEl.setAttribute('data-bs-theme', 'dark');
             } else {
-                htmlEl.classList.remove('dark');
-                htmlEl.setAttribute('data-mode', 'light');
+                htmlEl.setAttribute('data-bs-theme', 'light');
             }
         }
 
@@ -583,26 +593,26 @@
         // (renderLoadingState, renderErrorState, renderHeader are omitted for brevity, assumed unchanged)
         function renderLoadingState() {
             const div = document.createElement('div');
-            div.className = "fixed inset-0 flex flex-col items-center justify-center bg-slate-50 dark:bg-gray-800 z-50";
+            div.className = "position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-body z-3";
             div.innerHTML = `
-                <svg class="animate-spin h-10 w-10 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p class="mt-4 text-lg font-medium text-gray-700 dark:text-gray-300">Loading your Integral Practice from local browser storage...</p>
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-4 fs-5 fw-medium text-body-secondary">Loading your Integral Practice...</p>
             `;
             return div;
         }
 
         function renderErrorState() {
             const div = document.createElement('div');
-            div.className = "p-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg shadow-md mt-4";
+            div.className = "alert alert-danger shadow-sm mt-4";
             div.innerHTML = `
-                <h3 class="font-bold text-lg">System Error</h3>
+                <h4 class="alert-heading fw-bold">System Error</h4>
                 <p>${state.error}</p>
-                <p class="text-sm mt-2">
+                <hr>
+                <p class="mb-0 small">
                     If the error persists, please try reloading the page.
-                    <br/>User Context: <span class="font-mono bg-red-200 dark:bg-red-800 px-1 rounded text-xs">${userId || 'N/A'}</span>
+                    <br/>User Context: <span class="badge bg-danger-subtle text-danger-emphasis">${userId || 'N/A'}</span>
                     <br/>**Note: Data is saved to local browser storage only.**
                 </p>
             `;
@@ -611,29 +621,26 @@
 
         function renderHeader() {
             const header = document.createElement('header');
-            header.className = "flex flex-col sm:flex-row justify-between items-center py-4 mb-8 border-b-2 border-indigo-100 dark:border-indigo-900";
+            header.className = "d-flex flex-column flex-md-row justify-content-between align-items-center py-4 mb-5 border-bottom border-primary-subtle";
 
             // Title
             const h1 = document.createElement('h1');
-            h1.className = "text-3xl font-extrabold text-indigo-900 dark:text-indigo-200 tracking-tight flex items-center mb-4 sm:mb-0";
-            h1.innerHTML = '<span class="text-4xl mr-2">検</span> Integral Life Practice (Local)';
+            h1.className = "h3 fw-bold text-primary mb-3 mb-md-0 d-flex align-items-center";
+            h1.innerHTML = '<span class="display-6 me-2">検</span> ILP Tracker';
             header.appendChild(h1);
 
             // Nav Buttons Container
             const navContainer = document.createElement('div');
-            navContainer.className = "flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start";
+            navContainer.className = "d-flex align-items-center gap-3 w-100 w-md-auto justify-content-between justify-content-md-end";
 
             // Nav Buttons
             const navDiv = document.createElement('div');
-            navDiv.className = "flex space-x-3";
+            navDiv.className = "btn-group";
 
             const createButton = (text, targetView) => {
                 const btn = document.createElement('button');
                 btn.textContent = text;
-                btn.className = `px-4 py-2 rounded-full font-semibold transition-all duration-200 ${state.view === targetView
-                    ? 'bg-indigo-600 text-white shadow-lg'
-                    : 'bg-white text-indigo-600 border border-indigo-300 dark:bg-gray-700 dark:text-indigo-400 dark:border-indigo-900 hover:bg-indigo-50 dark:hover:bg-gray-600'
-                    }`;
+                btn.className = `btn ${state.view === targetView ? 'btn-primary' : 'btn-outline-primary'}`;
                 btn.addEventListener('click', () => setState({ view: targetView }));
                 return btn;
             };
@@ -645,10 +652,10 @@
 
             // Dark Mode Toggle Button
             const modeToggleBtn = document.createElement('button');
-            modeToggleBtn.className = 'p-2 rounded-full text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors shadow-md';
+            modeToggleBtn.className = 'btn btn-outline-secondary rounded-circle p-2 lh-1';
             modeToggleBtn.innerHTML = state.darkMode
-                ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>'
-                : '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>';
+                ? '<i class="bi bi-moon-stars-fill"></i>'
+                : '<i class="bi bi-sun-fill"></i>';
 
             modeToggleBtn.addEventListener('click', toggleDarkMode);
             navContainer.appendChild(modeToggleBtn);
@@ -657,7 +664,7 @@
 
             // User ID
             const userIdP = document.createElement('p');
-            userIdP.className = "text-xs text-slate-500 dark:text-slate-400 mt-4 sm:mt-0 sm:text-right w-full sm:w-auto";
+            userIdP.className = "small text-muted mt-3 mt-md-0 text-md-end w-100 w-md-auto mb-0";
             userIdP.textContent = `Local User Context: ${userId}`;
             header.appendChild(userIdP);
 
@@ -667,12 +674,11 @@
         // --- Render Tracker View (UPDATED) ---
         function renderTrackerView() {
             const div = document.createElement('div');
-            div.className = "space-y-6";
 
-            div.innerHTML = `<h2 class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">Today's ILP (${getTodayDateKey()})</h2>`;
+            div.innerHTML = `<h2 class="h4 fw-bold text-body mb-4">Today's ILP <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal fs-6 ms-2">${getTodayDateKey()}</span></h2>`;
 
             const grid = document.createElement('div');
-            grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+            grid.className = "row g-4";
             let modulesShown = 0;
 
             state.config.forEach(module => {
@@ -683,9 +689,12 @@
             });
 
             if (modulesShown === 0) {
-                grid.innerHTML = `<p class="p-4 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 col-span-full">
-                    No modules are scheduled for today (${new Date().toLocaleDateString('en-US', { weekday: 'long' })}). Enjoy your rest day!
-                </p>`;
+                grid.innerHTML = `<div class="col-12"><div class="alert alert-success d-flex align-items-center" role="alert">
+                    <i class="bi bi-cup-hot-fill fs-4 me-3"></i>
+                    <div>
+                        No modules are scheduled for today (${new Date().toLocaleDateString('en-US', { weekday: 'long' })}). Enjoy your rest day!
+                    </div>
+                </div></div>`;
             }
 
             div.appendChild(grid);
@@ -697,101 +706,93 @@
             const moduleCompleted = checkModulePracticesCompleted(module, state.dailyLog);
             const isChooseOne = module.frequency.rule === 'choose_one';
 
+            const col = document.createElement('div');
+            col.className = 'col-12 col-md-6 col-lg-4';
+
             const card = document.createElement('div');
-            card.className = `p-4 border-2 rounded-xl shadow-lg transition-all duration-300 ${moduleCompleted
-                ? 'bg-green-50 border-green-300 dark:bg-green-900 dark:border-green-700'
-                : 'bg-white border-slate-200 hover:shadow-xl dark:bg-gray-700 dark:border-gray-600 dark:hover:shadow-2xl'
-                }`;
+            card.className = `card h-100 ${moduleCompleted ? 'border-success' : 'border-0 shadow-sm'}`;
+            if (moduleCompleted) card.style.borderWidth = '2px';
+
+            const headerBg = moduleCompleted ? 'bg-success-subtle text-success-emphasis' : 'bg-body-secondary bg-opacity-50 text-body';
 
             const completionText = isChooseOne
-                ? 'Complete ONE practice below to satisfy this module.'
-                : 'Complete ALL practices below to satisfy this module.';
-
-            const completionStyle = moduleCompleted ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400';
+                ? 'Complete <strong class="text-decoration-underline">ONE</strong> practice to finish.'
+                : 'Complete <strong class="text-decoration-underline">ALL</strong> practices to finish.';
 
             card.innerHTML = `
-                <div class="flex items-center justify-between mb-3 border-b pb-2 border-indigo-100 dark:border-indigo-800">
-                    <div class="flex items-center">
-                        <span class="text-2xl mr-2">${module.icon}</span>
-                        <h3 class="text-xl font-semibold ${moduleCompleted
-                    ? 'text-green-700 dark:text-green-300'
-                    : 'text-indigo-700 dark:text-indigo-300'
-                }">${module.name}</h3>
-                    </div>
-                    <p class="text-xs font-medium ${completionStyle}">${moduleCompleted ? 'COMPLETED' : 'IN PROGRESS'}</p>
+                <div class="card-header ${headerBg} d-flex justify-content-between align-items-center border-bottom-0 py-3">
+                    <h5 class="card-title mb-0 d-flex align-items-center">
+                        <span class="fs-4 me-2">${module.icon}</span> 
+                        ${module.name}
+                    </h5>
+                    ${moduleCompleted ? '<span class="badge bg-success">COMPLETED</span>' : ''}
                 </div>
-                <p class="text-xs mb-3 ${completionStyle} italic">${completionText}</p>
-                <ul class="space-y-2" id="practices-list-${module.id}"></ul>
+                <div class="card-body">
+                    <p class="card-text small text-body-secondary mb-3 fst-italic">${completionText}</p>
+                    <div class="list-group list-group-flush rounded-3" id="practices-list-${module.id}"></div>
+                </div>
             `;
 
-            const ul = card.querySelector(`#practices-list-${module.id}`);
+            const listGroup = card.querySelector(`#practices-list-${module.id}`);
 
             // Filter practices based on their specific schedule
             const scheduledPractices = module.practices.filter(p => isPracticeScheduledToday(p));
 
             if (scheduledPractices.length === 0) {
-                ul.innerHTML = `<li class="text-xs text-slate-500 dark:text-slate-400 italic p-2">No specific practices scheduled for today.</li>`;
+                listGroup.innerHTML = `<div class="text-center text-body-tertiary small fst-italic py-2">No practices scheduled for today.</div>`;
             }
 
             scheduledPractices.forEach(practice => {
                 const isCompleted = state.dailyLog[`${module.id}_${practice.id}`] === 'completed';
 
-                const li = document.createElement('li');
-                li.className = `flex items-center p-2 rounded-lg cursor-pointer transition-colors duration-200 ${isCompleted
-                    ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
-                    : 'hover:bg-indigo-50 bg-slate-50 dark:bg-gray-600 dark:hover:bg-gray-500'
-                    }`;
-                li.addEventListener('click', () => togglePractice(module.id, practice.id, !isCompleted));
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = `list-group-item list-group-item-action d-flex align-items-center gap-3 py-3 cursor-pointer ${isCompleted ? 'bg-success-subtle text-success text-decoration-line-through' : ''}`;
 
-                li.innerHTML = `
-                    <input
-                        type="checkbox"
-                        ${isCompleted ? 'checked' : ''}
-                        readonly
-                        class="form-checkbox h-5 w-5 rounded transition duration-150 ease-in-out ${isCompleted
-                        ? 'text-green-600 border-green-500 bg-green-200 focus:ring-green-500'
-                        : 'text-indigo-600 border-gray-300 dark:border-gray-500 focus:ring-indigo-500'
-                    }"
-                    />
-                    <span class="ml-3 text-sm font-medium ${isCompleted
-                        ? 'line-through opacity-70'
-                        : 'text-gray-800 dark:text-gray-200'
-                    }">
-                        ${practice.name}
-                    </span>
+                item.addEventListener('click', () => togglePractice(module.id, practice.id, !isCompleted));
+
+                item.innerHTML = `
+                    <input class="form-check-input flex-shrink-0" type="checkbox" ${isCompleted ? 'checked' : ''} style="pointer-events: none;">
+                    <span class="mb-0 flex-grow-1 ${isCompleted ? 'opacity-50' : ''}">${practice.name}</span>
                 `;
-                ul.appendChild(li);
+                listGroup.appendChild(item);
             });
 
-            return card;
+            col.appendChild(card);
+            return col;
         }
 
         // --- Render Config View (UPDATED) ---
         function renderConfigView() {
             const div = document.createElement('div');
-            div.className = "space-y-8";
+            // Using container-like spacing
+            div.className = "d-flex flex-column gap-4";
 
             div.innerHTML = `
-                <h2 class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">Design Your Integral Life Practice</h2>
-                <p class="text-slate-600 dark:text-slate-400">Add or remove practices in your modules. This is your personal blueprint!</p>
+                <div class="mb-2">
+                    <h2 class="h4 fw-bold text-body">Design Your Integral Life Practice</h2>
+                    <p class="text-body-secondary">Add or remove practices in your modules. This is your personal blueprint!</p>
+                </div>
 
-                <form id="add-module-form" class="bg-indigo-50 dark:bg-indigo-900 p-6 rounded-xl shadow-inner border border-indigo-200 dark:border-indigo-800">
-                    <h3 class="text-xl font-semibold mb-3 text-indigo-700 dark:text-indigo-300">Add a New Module (e.g., Relationships, Work)</h3>
-                    <div class="flex space-x-3">
-                        <input
-                            type="text"
-                            id="new-module-name"
-                            value="${state.newModuleName}"
-                            placeholder="Module Name (e.g., 'Work Mastery')"
-                            class="flex-grow p-2 border border-indigo-300 dark:border-indigo-700 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-                        />
-                        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition duration-150 shadow-md">
-                            Add Module
-                        </button>
+                <form id="add-module-form" class="card shadow-sm border-primary-subtle">
+                    <div class="card-body bg-primary-subtle bg-opacity-10">
+                        <h5 class="card-title text-primary mb-3">Add a New Module</h5>
+                        <div class="input-group">
+                            <input
+                                type="text"
+                                id="new-module-name"
+                                value="${state.newModuleName}"
+                                placeholder="Module Name (e.g., 'Work Mastery')"
+                                class="form-control"
+                            />
+                            <button type="submit" class="btn btn-primary">
+                                Add Module
+                            </button>
+                        </div>
                     </div>
                 </form>
 
-                <div id="module-list" class="space-y-6"></div>
+                <div id="module-list" class="d-flex flex-column gap-4"></div>
             `;
 
             const form = div.querySelector('#add-module-form');
@@ -806,120 +807,119 @@
 
             state.config.forEach(module => {
                 const moduleDiv = document.createElement('div');
-                moduleDiv.className = "bg-white dark:bg-gray-700 p-5 rounded-xl shadow-lg border border-slate-200 dark:border-gray-600";
+                moduleDiv.className = "card shadow-sm";
 
                 const currentRule = module.frequency.rule;
                 const currentDays = module.frequency.days || [];
 
                 // Build the Day Selection interface if the rule is 'specific_days'
                 const daySelectionHtml = currentRule === 'specific_days' ? `
-                    <div class="mt-3 space-y-2">
-                        <h5 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Select Days:</h5>
-                        <div class="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                    <div class="mt-3">
+                        <label class="form-label small fw-semibold text-body-secondary">Select Days:</label>
+                        <div class="d-flex flex-wrap gap-2">
                             ${WEEK_DAYS.map(day => `
-                                <label class="flex items-center space-x-2 cursor-pointer bg-slate-100 dark:bg-gray-600 p-2 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-700 transition-colors">
-                                    <input 
-                                        type="checkbox" 
-                                        data-module-id="${module.id}" 
-                                        data-day-key="${day.key}"
-                                        ${currentDays.includes(day.key) ? 'checked' : ''}
-                                        class="day-selector h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-500 dark:bg-gray-700"
-                                    >
-                                    <span class="text-xs font-medium text-slate-800 dark:text-slate-200">${day.name.substring(0, 3)}</span>
-                                </label>
+                                <input 
+                                    type="checkbox" 
+                                    class="btn-check day-selector" 
+                                    id="btn-check-${module.id}-${day.key}" 
+                                    autocomplete="off"
+                                    data-module-id="${module.id}" 
+                                    data-day-key="${day.key}"
+                                    ${currentDays.includes(day.key) ? 'checked' : ''}
+                                >
+                                <label class="btn btn-outline-primary btn-sm" for="btn-check-${module.id}-${day.key}">${day.name.substring(0, 3)}</label>
                             `).join('')}
                         </div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 italic mt-2">Module is only visible on selected days in the tracker.</p>
+                        <div class="form-text small fst-italic mt-1">Module is only visible on selected days in the tracker.</div>
                     </div>
                 ` : '';
 
 
                 moduleDiv.innerHTML = `
-                    <div class="flex justify-between items-start mb-3 border-b pb-2 border-slate-200 dark:border-gray-600">
-                        <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
-                            <span class="mr-2 text-xl">${module.icon}</span> 
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
+                        <h4 class="h5 fw-bold mb-0 d-flex align-items-center text-body">
+                            <span class="me-2 fs-4">${module.icon}</span> 
                             ${module.name}
                         </h4>
-                        ${module.custom ? `<button data-module-id="${module.id}" class="remove-module-btn text-red-500 dark:text-red-400 text-sm hover:text-red-700 dark:hover:text-red-300 transition-colors">
+                        ${module.custom ? `<button data-module-id="${module.id}" class="remove-module-btn btn btn-outline-danger btn-sm">
                             Remove Module
                         </button>` : ''}
                     </div>
 
-                    <div class="mb-4 p-3 bg-slate-50 dark:bg-gray-600 rounded-lg border border-slate-200 dark:border-gray-500">
-                        <h5 class="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Module Rule & Frequency:</h5>
-                        <div class="flex flex-col space-y-2">
-                            <select 
-                                class="module-rule-selector p-2 border border-gray-300 dark:border-gray-500 rounded-lg text-sm dark:bg-gray-700 dark:text-white"
-                                data-module-id="${module.id}"
-                            >
-                                <option value="all" ${currentRule === 'all' ? 'selected' : ''}>Complete ALL Practices (Daily)</option>
-                                <option value="choose_one" ${currentRule === 'choose_one' ? 'selected' : ''}>Complete ONE Practice (Daily)</option>
-                                <option value="specific_days" ${currentRule === 'specific_days' ? 'selected' : ''}>Specific Days (Custom Frequency)</option>
-                            </select>
-                            
-                            ${daySelectionHtml}
+                    <div class="card-body">
+                        <div class="mb-4 p-3 bg-body-tertiary rounded border">
+                            <label class="form-label small fw-semibold text-body-secondary">Module Rule & Frequency:</label>
+                            <div class="d-flex flex-column gap-2">
+                                <select 
+                                    class="form-select module-rule-selector"
+                                    data-module-id="${module.id}"
+                                >
+                                    <option value="all" ${currentRule === 'all' ? 'selected' : ''}>Complete ALL Practices (Daily)</option>
+                                    <option value="choose_one" ${currentRule === 'choose_one' ? 'selected' : ''}>Complete ONE Practice (Daily)</option>
+                                    <option value="specific_days" ${currentRule === 'specific_days' ? 'selected' : ''}>Specific Days (Custom Frequency)</option>
+                                </select>
+                                
+                                ${daySelectionHtml}
+                            </div>
                         </div>
-                    </div>
 
-                    <ul class="space-y-4 mb-4">
-                        ${module.practices.map(practice => {
+                        <ul class="list-group list-group-flush mb-4 rounded border-0">
+                            ${module.practices.map(practice => {
                     const pDays = (practice.frequency && practice.frequency.days) || [];
                     const isScheduled = pDays.length > 0;
 
                     return `
-                            <li key="${practice.id}" class="bg-slate-50 dark:bg-gray-600 p-3 rounded-md border border-slate-100 dark:border-gray-500">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">${practice.name}</span>
-                                    <button data-module-id="${module.id}" data-practice-id="${practice.id}" class="remove-practice-btn text-red-400 hover:text-red-600 text-xs font-semibold px-2 py-1 transition-colors">
-                                        &times; Remove
-                                    </button>
-                                </div>
-                                
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Schedule:</span>
-                                    <div class="flex space-x-1">
-                                        ${WEEK_DAYS.map(day => `
-                                            <label class="cursor-pointer group relative">
+                                <li key="${practice.id}" class="list-group-item d-flex flex-column gap-2 p-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fw-semibold text-body">${practice.name}</span>
+                                        <button data-module-id="${module.id}" data-practice-id="${practice.id}" class="remove-practice-btn btn btn-sm btn-link text-danger text-decoration-none p-0">
+                                            &times; Remove
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="small text-body-secondary fw-medium">Schedule:</span>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            ${WEEK_DAYS.map(day => `
                                                 <input 
                                                     type="checkbox" 
+                                                    class="btn-check practice-day-selector"
+                                                    id="p-day-${module.id}-${practice.id}-${day.key}"
+                                                    autocomplete="off"
                                                     data-module-id="${module.id}" 
                                                     data-practice-id="${practice.id}"
                                                     data-day-key="${day.key}"
                                                     ${pDays.includes(day.key) ? 'checked' : ''}
-                                                    class="practice-day-selector sr-only"
                                                 >
-                                                <span class="block w-6 h-6 leading-6 text-center text-xs rounded transition-all duration-150 ${pDays.includes(day.key)
-                            ? 'bg-indigo-600 text-white font-bold shadow-sm'
-                            : 'bg-white dark:bg-gray-700 text-slate-400 border border-slate-200 dark:border-gray-500 hover:border-indigo-300 dark:hover:border-indigo-500'
-                        }">
+                                                <label class="btn btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" for="p-day-${module.id}-${practice.id}-${day.key}">
                                                     ${day.name.charAt(0)}
-                                                </span>
-                                            </label>
-                                        `).join('')}
+                                                </label>
+                                            `).join('')}
+                                        </div>
                                     </div>
-                                </div>
-                                <p class="text-[10px] text-slate-400 mt-1 pl-1">
-                                    ${isScheduled ? 'Active only on selected days.' : 'Active EVERY day the module is active.'}
-                                </p>
-                            </li>
-                        `}).join('')}
-                    </ul>
+                                    <div class="form-text mt-0" style="font-size: 0.7rem;">
+                                        ${isScheduled ? 'Active only on selected days.' : 'Active EVERY day the module is active.'}
+                                    </div>
+                                </li>
+                            `}).join('')}
+                        </ul>
 
-                    <form data-module-id="${module.id}" class="add-practice-form mt-4 flex space-x-2">
-                        <input
-                            type="text"
-                            data-module-id="${module.id}"
-                            value="${state.newPracticeTexts[module.id] || ''}"
-                            placeholder="New practice for ${module.name}"
-                            class="practice-input flex-grow p-2 border border-slate-300 dark:border-gray-500 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:text-white"
-                        />
-                        <button
-                            type="submit"
-                            class="bg-indigo-500 text-white text-sm px-3 py-1 rounded-lg hover:bg-indigo-600 transition duration-150"
-                        >
-                            Add Practice
-                        </button>
-                    </form>
+                        <form data-module-id="${module.id}" class="add-practice-form input-group">
+                            <input
+                                type="text"
+                                data-module-id="${module.id}"
+                                value="${state.newPracticeTexts[module.id] || ''}"
+                                placeholder="New practice for ${module.name}"
+                                class="practice-input form-control form-control-sm"
+                            />
+                            <button
+                                type="submit"
+                                class="btn btn-primary btn-sm"
+                            >
+                                Add Practice
+                            </button>
+                        </form>
+                    </div>
                 `;
 
                 moduleListContainer.appendChild(moduleDiv);
@@ -974,20 +974,22 @@
         // --- Render History View (UPDATED for 'N/A' status) ---
         function renderHistoryView() {
             const div = document.createElement('div');
-            div.className = "space-y-6";
+            div.className = "d-flex flex-column gap-4";
 
             div.innerHTML = `
-                <h2 class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">Practice History Review</h2>
-                <p class="text-slate-600 dark:text-slate-400">Review your past **Module Completion Rate**. Click on a day to see details!</p>
+                <div class="mb-2">
+                    <h2 class="h4 fw-bold text-body">Practice History Review</h2>
+                    <p class="text-body-secondary">Review your past <strong>Module Completion Rate</strong>. Click on a day to see details!</p>
+                </div>
             `;
 
             const historyContainer = document.createElement('div');
-            historyContainer.className = "space-y-8";
+            historyContainer.className = "d-flex flex-column gap-4";
 
             const logDates = Object.keys(state.allLogs).sort(); // Sort ascending for weekly grouping
 
             if (logDates.length === 0) {
-                historyContainer.innerHTML = '<p class="p-4 bg-yellow-100 dark:bg-yellow-900 rounded-xl text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700">No practice logs found yet. Start tracking your habits on the Daily Tracker!</p>';
+                historyContainer.innerHTML = '<div class="alert alert-warning">No practice logs found yet. Start tracking your habits on the Daily Tracker!</div>';
             } else {
                 // Group logs by week (Sunday start)
                 const logsByWeek = {};
@@ -1006,18 +1008,18 @@
 
                 weekKeys.forEach(weekStartKey => {
                     const weekDiv = document.createElement('div');
-                    weekDiv.className = "p-5 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-indigo-100 dark:border-indigo-900";
+                    weekDiv.className = "card shadow-sm";
 
                     const weekHeader = document.createElement('div');
-                    weekHeader.className = "flex justify-between items-center mb-3 pb-2 border-b border-indigo-200 dark:border-indigo-800";
+                    weekHeader.className = "card-header d-flex justify-content-between align-items-center bg-transparent py-3";
 
                     const title = document.createElement('h3');
-                    title.className = "text-xl font-bold text-indigo-700 dark:text-indigo-400";
+                    title.className = "h5 fw-bold text-primary mb-0";
                     title.textContent = `Week of ${formatWeekRange(weekStartKey)}`;
 
                     const exportBtn = document.createElement('button');
                     exportBtn.textContent = "Export TXT";
-                    exportBtn.className = "text-sm bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-indigo-300 dark:hover:bg-gray-600 transition-colors";
+                    exportBtn.className = "btn btn-outline-secondary btn-sm";
                     exportBtn.addEventListener('click', () => handleExportWeek(weekStartKey));
 
                     weekHeader.appendChild(title);
@@ -1026,7 +1028,7 @@
                     weekDiv.appendChild(weekHeader);
 
                     const dailyLogGrid = document.createElement('div');
-                    dailyLogGrid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3";
+                    dailyLogGrid.className = "card-body row g-3";
 
                     // Display days in order, descending
                     const weekLogs = logsByWeek[weekStartKey].sort().reverse();
@@ -1055,27 +1057,32 @@
 
                         const isToday = dateKey === todayKey;
 
+                        const col = document.createElement('div');
+                        col.className = 'col-12 col-md-6 col-lg-4';
+
                         const dayCard = document.createElement('div');
-                        dayCard.className = `p-3 rounded-lg border cursor-pointer transition-all duration-200 ${isToday
-                            ? 'bg-indigo-50 border-indigo-300 dark:bg-indigo-900/30 dark:border-indigo-700 ring-2 ring-indigo-400'
-                            : 'bg-slate-50 border-slate-200 hover:bg-white hover:shadow-md dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600'
-                            }`;
+                        dayCard.className = `card h-100 cursor-pointer transition-all ${isToday ? 'border-primary shadow-sm bg-primary-subtle bg-opacity-10' : 'hover-shadow'}`;
+                        if (isToday) dayCard.style.borderWidth = '2px';
+
                         dayCard.addEventListener('click', () => handleDayLogClick(dateKey));
 
                         dayCard.innerHTML = `
-                             <div class="flex justify-between items-center mb-2">
-                                <span class="text-sm font-bold text-slate-700 dark:text-slate-300">${dayOfWeek}, ${dateObj.getDate()}</span>
-                                <span class="text-xs font-mono text-slate-400 dark:text-slate-500">${dateKey.split('-').slice(1).join('/')}</span>
-                            </div>
-                            <div class="w-full bg-slate-200 dark:bg-gray-600 rounded-full h-2.5 mb-2 overflow-hidden">
-                                <div class="bg-indigo-600 h-2.5 rounded-full" style="width: ${completionPercentage}%"></div>
-                            </div>
-                            <div class="flex justify-between text-xs">
-                                <span class="text-slate-600 dark:text-slate-400">${completedModulesCount}/${scheduledModulesCount} complete</span>
-                                <span class="font-bold text-indigo-700 dark:text-indigo-400">${completionPercentage}%</span>
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold text-body">${dayOfWeek}, ${dateObj.getDate()}</span>
+                                    <span class="small font-monospace text-body-secondary">${dateKey.split('-').slice(1).join('/')}</span>
+                                </div>
+                                <div class="progress mb-2" style="height: 10px;">
+                                    <div class="progress-bar" role="progressbar" style="width: ${completionPercentage}%" aria-valuenow="${completionPercentage}" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <div class="d-flex justify-content-between small">
+                                    <span class="text-body-secondary">${completedModulesCount}/${scheduledModulesCount} complete</span>
+                                    <span class="fw-bold text-primary">${completionPercentage}%</span>
+                                </div>
                             </div>
                         `;
-                        dailyLogGrid.appendChild(dayCard);
+                        col.appendChild(dayCard);
+                        dailyLogGrid.appendChild(col);
                     });
 
                     weekDiv.appendChild(dailyLogGrid);
@@ -1097,30 +1104,39 @@
         function createLogDetailsModal(dateKey) {
             const logEntry = state.allLogs[dateKey] || { practices: {} };
 
-            const div = document.createElement('div');
-            div.className = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm";
-            div.addEventListener('click', (e) => {
-                if (e.target === div) handleCloseModal();
+            const backdrop = document.createElement('div');
+            backdrop.className = "modal-backdrop fade show";
+
+            const modal = document.createElement('div');
+            modal.className = "modal fade show d-block";
+            modal.tabIndex = -1;
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) handleCloseModal();
             });
 
+            const dialog = document.createElement('div');
+            dialog.className = "modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable";
+
             const content = document.createElement('div');
-            content.className = "bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col";
+            content.className = "modal-content shadow";
 
             content.innerHTML = `
-                <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800 z-10">
+                <div class="modal-header">
                     <div>
-                        <h3 class="text-2xl font-bold text-gray-800 dark:text-white">Log Details</h3>
-                        <p class="text-sm text-indigo-500 font-medium">${new Date(dateKey + 'T00:00:00').toDateString()}</p>
+                        <h5 class="modal-title fw-bold">Log Details</h5>
+                        <small class="text-primary fw-medium">${new Date(dateKey + 'T00:00:00').toDateString()}</small>
                     </div>
-                    <button id="close-modal-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
+                    <button type="button" class="btn-close" id="close-modal-btn" aria-label="Close"></button>
                 </div>
-                <div class="p-6 space-y-6">
-             `;
+                <div class="modal-body">
+                    <div class="d-flex flex-column gap-3" id="modal-practices-container"></div>
+                </div>
+            `;
 
-            const practicesContainer = document.createElement('div');
-            practicesContainer.className = "space-y-4";
+            const practicesContainer = content.querySelector('#modal-practices-container');
 
             // Reuse rendering logic basically but readonly
             state.config.forEach(module => {
@@ -1133,19 +1149,19 @@
                 const scheduledPractices = module.practices.filter(p => isPracticeScheduledToday(p, dateKey));
 
                 const moduleDiv = document.createElement('div');
-                moduleDiv.className = "border rounded-lg p-4 " + (completed ? "border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800" : "border-gray-200 dark:border-gray-700");
+                moduleDiv.className = `border rounded p-3 ${completed ? "border-success bg-success-subtle bg-opacity-25" : "border-secondary-subtle"}`;
 
                 moduleDiv.innerHTML = `
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="text-2xl">${module.icon}</div>
-                        <h4 class="font-bold ${completed ? "text-green-700 dark:text-green-400" : "text-gray-700 dark:text-gray-300"}">${module.name}</h4>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <div class="fs-4">${module.icon}</div>
+                        <h5 class="mb-0 fw-bold ${completed ? "text-success-emphasis" : "text-body"}">${module.name}</h5>
                     </div>
-                    <ul class="space-y-1 ml-9">
+                    <ul class="list-unstyled ms-4 mb-0 d-flex flex-column gap-1">
                         ${scheduledPractices.map(p => {
                     const pDone = logEntry.practices[`${module.id}_${p.id}`] === 'completed';
                     return `
-                                <li class="text-sm flex items-center gap-2 ${pDone ? "text-green-700 dark:text-green-400 font-medium" : "text-gray-500 dark:text-gray-400"}">
-                                    <span class="w-4 h-4 flex items-center justify-center border rounded ${pDone ? "bg-green-500 border-green-500 text-white" : "border-gray-300"}">
+                                <li class="small d-flex align-items-center gap-2 ${pDone ? "text-success fw-medium" : "text-body-secondary"}">
+                                    <span class="d-inline-flex align-items-center justify-content-center border rounded ${pDone ? "bg-success border-success text-white" : "border-secondary-subtle"}" style="width: 16px; height: 16px; font-size: 10px;">
                                         ${pDone ? "✓" : ""}
                                     </span>
                                     ${p.name}
@@ -1158,17 +1174,24 @@
             });
 
             if (practicesContainer.innerHTML === "") {
-                practicesContainer.innerHTML = "<p class='text-gray-500 italic text-center'>No modules were scheduled for this day.</p>";
+                practicesContainer.innerHTML = "<p class='text-muted fst-italic text-center my-4'>No modules were scheduled for this day.</p>";
             }
-
-            content.lastElementChild.appendChild(practicesContainer); // Add to p-6 div
-            content.innerHTML += `</div>`; // Close p-6 div
 
             const closeBtn = content.querySelector('#close-modal-btn');
             closeBtn.addEventListener('click', handleCloseModal);
 
-            div.appendChild(content);
-            return div;
+            dialog.appendChild(content);
+            modal.appendChild(dialog);
+
+            // Wrap strictly for return, but need to append backdrop to body or handle it. 
+            // Since we return a single element to append to #app, we can wrap both in a wrapper.
+            // But usually modals are appended to body. Here we append to #app.
+            // A wrapper div is easiest.
+            const wrapper = document.createElement('div');
+            wrapper.appendChild(backdrop);
+            wrapper.appendChild(modal);
+
+            return wrapper;
         }
 
         // --- Main Render Function ---
