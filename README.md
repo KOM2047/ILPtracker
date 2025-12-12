@@ -4,7 +4,7 @@
 
 A privacy-focused, glassmorphic Progressive Web App (PWA) designed to help you cultivate a balanced Integral Practice across **Body, Mind, Spirit, and Shadow**. Built for the modern "Second Tier" practitioner, this tool visualizes your holistic growth through a dynamic AQAL-inspired interface.
 
-![Mandala Progress](https://placehold.co/600x400?text=Mandala+Visual+Concept)
+![Mandala Progress](docs/assets/mandala-concept.png)
 
 ---
 
