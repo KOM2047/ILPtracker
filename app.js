@@ -342,6 +342,41 @@ function togglePractice(moduleId, practiceId, isChecked) {
     }
 }
 
+function saveJournalEntry(dateKey, text) {
+    if (!userId) return;
+    const logKey = getLocalAllLogsKey();
+
+    // 1. Get existing log for date or create scaffolding
+    const existingLog = state.allLogs[dateKey] || { date: dateKey, practices: {} };
+
+    // 2. Update journal field
+    const updatedLogEntry = {
+        ...existingLog,
+        journal: text,
+        updatedAt: new Date().toISOString()
+    };
+
+    const updatedAllLogs = {
+        ...state.allLogs,
+        [dateKey]: updatedLogEntry
+    };
+
+    try {
+        setState({
+            allLogs: updatedAllLogs,
+            dailyLog: dateKey === getTodayDateKey() ? updatedLogEntry.practices : state.dailyLog
+        });
+
+        localStorage.setItem(logKey, JSON.stringify({
+            logs: updatedAllLogs,
+            updatedAt: new Date().toISOString()
+        }));
+    } catch (e) {
+        console.error("Error saving journal:", e);
+        setState({ error: "Failed to save journal." });
+    }
+}
+
 // --- Config UI Handlers (UPDATED) ---
 
 function handleUpdateModuleFrequencyRule(moduleId, rule) {
@@ -509,8 +544,11 @@ function generateWeekTxt(weekStartKey) {
 
         content += `--- ${dayName}, ${dateKey} ---\n`;
 
+
         const logEntry = state.allLogs[dateKey];
         const practices = logEntry ? logEntry.practices : {};
+        // NEW: Include Journal Entry in export
+        const journal = logEntry ? logEntry.journal : '';
 
         let scheduledCount = 0;
         let completedCount = 0;
@@ -543,6 +581,13 @@ function generateWeekTxt(weekStartKey) {
             content += `Summary: ${completedCount}/${scheduledCount} Modules Completed\n\n`;
         }
     }
+
+    // Append Journal Entry if exists
+    if (journal) {
+        content += `\n[Journal Entry]\n${journal}\n`;
+    }
+    content += `\n`;
+
 
     return content;
 }
@@ -619,6 +664,7 @@ function renderHeader() {
 
     navDiv.appendChild(createButton('Daily', 'tracker'));
     navDiv.appendChild(createButton('Design', 'config'));
+    navDiv.appendChild(createButton('Journal', 'journal')); // NEW
     navDiv.appendChild(createButton('History', 'history'));
     navContainer.appendChild(navDiv);
 
@@ -1042,6 +1088,115 @@ function renderConfigView() {
     return div;
 }
 
+
+// --- Render Journal View (NEW) ---
+function renderJournalView() {
+    const div = document.createElement('div');
+    div.className = "d-flex flex-column gap-4";
+
+    // 1. Determine Date
+    const activeDateKey = state.selectedLogDate || getTodayDateKey();
+    const isToday = activeDateKey === getTodayDateKey();
+
+    // 2. Navigation Header
+    const navHeader = document.createElement('div');
+    navHeader.className = "d-flex justify-content-between align-items-center bg-body rounded-4 p-3 shadow-sm border border-light-subtle";
+
+    const prevDate = new Date(activeDateKey);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevKey = prevDate.toISOString().split('T')[0];
+
+    const nextDate = new Date(activeDateKey);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const nextKey = nextDate.toISOString().split('T')[0];
+    const isFuture = nextDate > new Date();
+
+    navHeader.innerHTML = `
+        <button id="prevDayBtn" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-chevron-left"></i></button>
+        <span class="fw-bold text-body large">${new Date(activeDateKey).toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric' })}</span>
+        <button id="nextDayBtn" class="btn btn-sm btn-outline-secondary rounded-pill" ${isFuture ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>
+    `;
+
+    // 3. Context (Completed Modules)
+    const logEntry = state.allLogs[activeDateKey] || { practices: {}, journal: '' };
+    const completedModules = [];
+    state.config.forEach(m => {
+        if (isModuleCompleted(m, logEntry.practices, activeDateKey) === true) {
+            completedModules.push(m);
+        }
+    });
+
+    const contextDiv = document.createElement('div');
+    if (completedModules.length > 0) {
+        contextDiv.innerHTML = `
+            <div class="d-flex gap-2 mb-3 overflow-x-auto pb-2">
+                ${completedModules.map(m => `
+                    <span class="badge rounded-pill bg-success-subtle text-success-emphasis border border-success-subtle px-3 py-2">
+                        <i class="${m.icon} me-1"></i> ${m.name}
+                    </span>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        contextDiv.innerHTML = `<p class="small text-body-secondary fst-italic mb-3">No modules integrated fully on this day.</p>`;
+    }
+
+
+    // 4. Text Area
+    const editorContainer = document.createElement('div');
+    editorContainer.className = "card border-0 shadow-sm rounded-4 overflow-hidden";
+
+    const currentText = logEntry.journal || '';
+
+    editorContainer.innerHTML = `
+        <div class="card-header bg-body-tertiary border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="h6 fw-bold mb-0 text-body"><i class="bi bi-journal-text me-2"></i>Reflection</h5>
+            <small class="text-body-secondary" id="saveStatus">Auto-saved</small>
+        </div>
+        <div class="card-body p-0">
+            <textarea id="journalEditor" class="form-control border-0 p-4 fs-5 text-body bg-body checkbox-list-fix" style="min-height: 400px; resize: none; outline: none !important; box-shadow: none;" placeholder="Write your reflections here...">${currentText}</textarea>
+        </div>
+        <div class="card-footer bg-body border-top p-3 text-end">
+             <button id="exportJournalBtn" class="btn btn-outline-primary btn-sm rounded-pill"><i class="bi bi-download me-1"></i> Export Entry</button>
+        </div>
+    `;
+
+    div.appendChild(navHeader);
+    div.appendChild(contextDiv);
+    div.appendChild(editorContainer);
+
+    // 5. Event Listeners
+    setTimeout(() => {
+        const prevBtn = div.querySelector('#prevDayBtn');
+        const nextBtn = div.querySelector('#nextDayBtn');
+        const editor = div.querySelector('#journalEditor');
+        const status = div.querySelector('#saveStatus');
+        const exportBtn = div.querySelector('#exportJournalBtn');
+
+        if (prevBtn) prevBtn.onclick = () => setState({ selectedLogDate: prevKey });
+        if (nextBtn) nextBtn.onclick = () => setState({ selectedLogDate: nextKey });
+
+        if (exportBtn) exportBtn.onclick = () => {
+            const filename = `Journal_${activeDateKey}.txt`;
+            downloadTxtFile(filename, `JOURNAL - ${activeDateKey}\n\n${editor.value}`);
+        }
+
+        let timeoutId;
+        if (editor) {
+            editor.addEventListener('input', (e) => {
+                status.textContent = "Typing...";
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    saveJournalEntry(activeDateKey, e.target.value);
+                    status.textContent = "Saved";
+                }, 800);
+            });
+        }
+    }, 0);
+
+    return div;
+}
+
 // --- Render History View (Integral Timeline) ---
 function renderHistoryView() {
     const div = document.createElement('div');
@@ -1254,6 +1409,16 @@ function createLogDetailsModal(dateKey) {
         practicesContainer.innerHTML = "<p class='text-muted fst-italic text-center my-4'>No modules were active on this day.</p>";
     }
 
+    if (logEntry.journal) {
+        const journalDiv = document.createElement('div');
+        journalDiv.className = "mt-4 pt-3 border-top border-secondary-subtle";
+        journalDiv.innerHTML = `
+            <h5 class="h6 fw-bold mb-2 text-body"><i class="bi bi-journal-text me-2"></i>Reflection</h5>
+            <div class="p-3 bg-body-tertiary bg-opacity-50 rounded-3 small text-body-secondary" style="white-space: pre-wrap;">${logEntry.journal}</div>
+        `;
+        content.querySelector('.modal-body').appendChild(journalDiv);
+    }
+
     const closeBtn = content.querySelector('#close-modal-btn');
     closeBtn.addEventListener('click', handleCloseModal);
 
@@ -1290,6 +1455,8 @@ function renderApp() {
         app.appendChild(renderTrackerView());
     } else if (state.view === 'config') {
         app.appendChild(renderConfigView());
+    } else if (state.view === 'journal') {
+        app.appendChild(renderJournalView());
     } else if (state.view === 'history') {
         app.appendChild(renderHistoryView());
     }
